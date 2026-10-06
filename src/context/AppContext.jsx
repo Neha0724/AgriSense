@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 
 const AppContext = createContext();
@@ -29,24 +29,26 @@ export const AppProvider = ({ children }) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Initial load
+  // Initial load: fields first, then everything else for the first field
+  const initialFieldId = useRef(null);
   useEffect(() => {
     const initData = async () => {
       try {
         setLoading(true);
-        const [fieldsData, weatherData, charts, recommendation, historyData, settingsData] = await Promise.all([
-          apiService.getFields(),
-          apiService.getWeather(),
-          apiService.getChartsData(),
+        const fieldsData = await apiService.getFields();
+        const firstField = fieldsData[0] || null;
+        initialFieldId.current = firstField?.id ?? null;
+
+        const [weatherData, charts, recommendation, historyData, settingsData] = await Promise.all([
+          apiService.getWeather(firstField?.id),
+          apiService.getChartsData(firstField?.id),
           apiService.getRecommendations(),
           apiService.getHistory(),
           apiService.getSettings()
         ]);
 
         setFields(fieldsData);
-        if (fieldsData.length > 0) {
-          setSelectedField(fieldsData[0]);
-        }
+        setSelectedField(firstField);
         setWeather(weatherData);
         setChartsData(charts);
         setActiveRecommendation(recommendation);
@@ -54,7 +56,7 @@ export const AppProvider = ({ children }) => {
         setSettings(settingsData);
       } catch (err) {
         console.error('Failed to load initial AgriSense data', err);
-        addToast('Could not load farm data. Using offline defaults.', 'error');
+        addToast(err.message || 'Could not load farm data.', 'error', 'Server unavailable');
       } finally {
         setLoading(false);
       }
@@ -62,6 +64,19 @@ export const AppProvider = ({ children }) => {
 
     initData();
   }, []);
+
+  // Reload weather and charts when the user switches fields
+  const selectedFieldId = selectedField?.id;
+  useEffect(() => {
+    if (selectedFieldId == null || selectedFieldId === initialFieldId.current) return;
+    initialFieldId.current = null; // only skip the very first (already loaded) field
+    Promise.all([apiService.getWeather(selectedFieldId), apiService.getChartsData(selectedFieldId)])
+      .then(([weatherData, charts]) => {
+        setWeather(weatherData);
+        setChartsData(charts);
+      })
+      .catch(err => console.error('Failed to refresh field data', err));
+  }, [selectedFieldId]);
 
   // Action: Add new field
   const handleAddField = async (fieldFormData) => {
@@ -73,7 +88,7 @@ export const AppProvider = ({ children }) => {
       return created;
     } catch (err) {
       console.error(err);
-      addToast('Failed to add field. Please try again.', 'error');
+      addToast(err.message || 'Failed to add field. Please try again.', 'error');
       throw err;
     }
   };
@@ -84,11 +99,20 @@ export const AppProvider = ({ children }) => {
       setIsAnalyzing(true);
       const result = await apiService.analyzeField(inputData);
       setActiveRecommendation(result);
+
+      // The backend updates the field's readings and trend data; pull them in
+      const [fieldsData, charts] = await Promise.all([
+        apiService.getFields(),
+        apiService.getChartsData(result.fieldId)
+      ]);
+      setFields(fieldsData);
+      setSelectedField(prev => fieldsData.find(f => f.id === prev?.id) || prev);
+      setChartsData(charts);
       addToast('AI analysis completed successfully!', 'success', 'Analysis Complete');
       return result;
     } catch (err) {
       console.error(err);
-      addToast('Failed to complete AI analysis.', 'error');
+      addToast(err.message || 'Failed to complete AI analysis.', 'error');
       throw err;
     } finally {
       setIsAnalyzing(false);
@@ -104,7 +128,7 @@ export const AppProvider = ({ children }) => {
       addToast(`Recommendation saved for ${savedEntry.field}.`, 'success', 'Saved');
     } catch (err) {
       console.error(err);
-      addToast('Failed to save recommendation.', 'error');
+      addToast(err.message || 'Failed to save recommendation.', 'error');
     }
   };
 
@@ -116,7 +140,7 @@ export const AppProvider = ({ children }) => {
       addToast('Farm preferences saved.', 'success');
     } catch (err) {
       console.error(err);
-      addToast('Failed to update settings.', 'error');
+      addToast(err.message || 'Failed to update settings.', 'error');
     }
   };
 
