@@ -5,15 +5,18 @@ import { Button } from './Button';
 export const AddFieldModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: '',
-    crop: 'Wheat',
-    soilType: 'Loamy',
+    crop: 'Cotton',
+    soilType: 'Black',
     area: '',
     unit: 'hectares',
     growthStage: 'Vegetative',
-    soilMoisture: 45,
-    nitrogen: 50,
-    phosphorus: 30,
-    potassium: 40
+    soilMoisture: 25,
+    soilMoistureVolume: 1059,
+    pH: 7.1,
+    district: 'Nagpur',
+    nitrogen: 108,
+    phosphorus: 11.59,
+    potassium: 130
   });
 
   const [loading, setLoading] = useState(false);
@@ -44,15 +47,18 @@ export const AddFieldModal = ({ isOpen, onClose, onSubmit }) => {
       onClose();
       setFormData({
         name: '',
-        crop: 'Wheat',
-        soilType: 'Loamy',
+        crop: 'Cotton',
+        soilType: 'Black',
         area: '',
         unit: 'hectares',
         growthStage: 'Vegetative',
-        soilMoisture: 45,
-        nitrogen: 50,
-        phosphorus: 30,
-        potassium: 40
+        soilMoisture: 25,
+        soilMoistureVolume: 1059,
+        pH: 7.1,
+        district: 'Nagpur',
+        nitrogen: 108,
+        phosphorus: 11.59,
+        potassium: 130
       });
     } catch (err) {
       console.error(err);
@@ -94,14 +100,8 @@ export const AddFieldModal = ({ isOpen, onClose, onSubmit }) => {
               onChange={handleChange}
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-agri-500 bg-slate-50/50"
             >
-              <option value="Wheat">Wheat</option>
-              <option value="Rice">Rice</option>
               <option value="Cotton">Cotton</option>
-              <option value="Maize">Maize (Corn)</option>
-              <option value="Sugarcane">Sugarcane</option>
               <option value="Soybean">Soybean</option>
-              <option value="Potato">Potato</option>
-              <option value="Tomato">Tomato</option>
             </select>
           </div>
 
@@ -136,11 +136,10 @@ export const AddFieldModal = ({ isOpen, onClose, onSubmit }) => {
               onChange={handleChange}
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-agri-500 bg-slate-50/50"
             >
-              <option value="Loamy">Loamy</option>
-              <option value="Clay">Clay</option>
-              <option value="Sandy Loam">Sandy Loam</option>
-              <option value="Black Soil">Black Soil (Vertisol)</option>
-              <option value="Silt">Silt</option>
+              <option value="Black">Black</option>
+              <option value="Red">Red</option>
+              <option value="Alluvial">Alluvial</option>
+              <option value="Laterite">Laterite</option>
             </select>
           </div>
 
@@ -157,13 +156,33 @@ export const AddFieldModal = ({ isOpen, onClose, onSubmit }) => {
               <option value="Germination">Germination</option>
               <option value="Vegetative">Vegetative</option>
               <option value="Flowering">Flowering</option>
-              <option value="Fruiting">Fruiting</option>
               <option value="Maturity">Maturity / Harvest</option>
             </select>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">District</label>
+            <input name="district" value={formData.district} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Soil pH</label>
+            <input type="number" name="pH" min="0" max="14" step="0.1" value={formData.pH} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Soil Moisture Volume (dataset units)</label>
+            <input type="number" name="soilMoistureVolume" min="0" value={formData.soilMoistureVolume} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Nitrogen (N)</label><input type="number" name="nitrogen" value={formData.nitrogen} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" /></div>
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Phosphorus (P)</label><input type="number" name="phosphorus" value={formData.phosphorus} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" /></div>
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Potassium (K)</label><input type="number" name="potassium" value={formData.potassium} onChange={handleChange} required className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50" /></div>
+        </div>
+
+        {/* Actions */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
           <Button variant="ghost" onClick={onClose}>
             Cancel

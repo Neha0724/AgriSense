@@ -4,6 +4,7 @@ import { apiService } from '../services/api';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('agrisense_user') || 'null'); } catch { return null; } });
   const [fields, setFields] = useState([]);
   const [selectedField, setSelectedField] = useState(null);
   const [weather, setWeather] = useState(null);
@@ -31,10 +32,12 @@ export const AppProvider = ({ children }) => {
 
   // Initial load
   useEffect(() => {
+    if (!localStorage.getItem('agrisense_token')) { setFields([]); setHistory([]); setActiveRecommendation(null); setLoading(false); return; }
     const initData = async () => {
       try {
         setLoading(true);
-        const [fieldsData, weatherData, charts, recommendation, historyData, settingsData] = await Promise.all([
+        const [userData, fieldsData, weatherData, charts, recommendation, historyData, settingsData] = await Promise.all([
+          apiService.getCurrentUser(),
           apiService.getFields(),
           apiService.getWeather(),
           apiService.getChartsData(),
@@ -43,6 +46,8 @@ export const AppProvider = ({ children }) => {
           apiService.getSettings()
         ]);
 
+        setUser(userData);
+        localStorage.setItem('agrisense_user', JSON.stringify(userData));
         setFields(fieldsData);
         if (fieldsData.length > 0) {
           setSelectedField(fieldsData[0]);
@@ -54,7 +59,7 @@ export const AppProvider = ({ children }) => {
         setSettings(settingsData);
       } catch (err) {
         console.error('Failed to load initial AgriSense data', err);
-        addToast('Could not load farm data. Using offline defaults.', 'error');
+        addToast(err?.message || 'Could not load farm data. Check backend and MongoDB connection.', 'error');
       } finally {
         setLoading(false);
       }
@@ -73,7 +78,7 @@ export const AppProvider = ({ children }) => {
       return created;
     } catch (err) {
       console.error(err);
-      addToast('Failed to add field. Please try again.', 'error');
+      addToast(err?.message || 'Failed to add field.', 'error');
       throw err;
     }
   };
@@ -84,11 +89,12 @@ export const AppProvider = ({ children }) => {
       setIsAnalyzing(true);
       const result = await apiService.analyzeField(inputData);
       setActiveRecommendation(result);
-      addToast('AI analysis completed successfully!', 'success', 'Analysis Complete');
+      setHistory(await apiService.getHistory());
+      addToast('AI analysis completed and saved to your history!' , 'success', 'Analysis Complete');
       return result;
     } catch (err) {
       console.error(err);
-      addToast('Failed to complete AI analysis.', 'error');
+      addToast(err?.message || 'Failed to complete AI analysis.', 'error');
       throw err;
     } finally {
       setIsAnalyzing(false);
@@ -97,14 +103,11 @@ export const AppProvider = ({ children }) => {
 
   // Action: Save active recommendation to history
   const handleSaveRecommendation = async () => {
-    if (!activeRecommendation) return;
     try {
-      const savedEntry = await apiService.saveRecommendation(activeRecommendation);
-      setHistory(prev => [savedEntry, ...prev]);
-      addToast(`Recommendation saved for ${savedEntry.field}.`, 'success', 'Saved');
+      setHistory(await apiService.getHistory());
+      addToast('This analysis is already saved in MongoDB history.', 'success', 'Saved');
     } catch (err) {
-      console.error(err);
-      addToast('Failed to save recommendation.', 'error');
+      addToast(err?.message || 'Could not refresh analysis history.', 'error');
     }
   };
 
@@ -121,6 +124,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const value = {
+    user,
+    setUser,
     fields,
     selectedField,
     setSelectedField,

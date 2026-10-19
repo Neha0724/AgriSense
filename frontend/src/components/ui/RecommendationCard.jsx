@@ -6,7 +6,7 @@ export const RecommendationCard = ({ type = 'irrigation', data, className = '' }
   if (!data) return null;
 
   const isIrrigation = type === 'irrigation';
-  const confidence = data.confidence || (isIrrigation ? 91 : 87);
+  const confidence = Number.isFinite(data.confidence) ? data.confidence : null;
 
   return (
     <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6 transition-all duration-200 hover:shadow-soft-lg ${className}`}>
@@ -20,42 +20,29 @@ export const RecommendationCard = ({ type = 'irrigation', data, className = '' }
           </div>
           <div>
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              {isIrrigation ? 'Watering Schedule' : 'NPK Dosage'}
+              {isIrrigation ? 'Irrigation Need Prediction' : 'Fertilizer Type Prediction'}
             </span>
             <h3 className="text-xl font-extrabold text-slate-900">
               {isIrrigation ? 'Irrigation Recommendation' : 'Fertilizer Recommendation'}
             </h3>
           </div>
         </div>
-        <StatusBadge status={isIrrigation ? data.status || 'Irrigate Today' : 'Required'} />
+        <StatusBadge status={isIrrigation ? data.status || data.prediction || 'No prediction yet' : data.recommendation || 'No prediction yet'} />
       </div>
 
       {/* Primary Value Display */}
       <div className="my-5 p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs text-slate-500 font-medium block">
-            {isIrrigation ? 'Recommended Dosage' : 'Recommended NPK Application'}
+            {isIrrigation ? 'Model prediction' : 'Model recommendation'}
           </span>
           {isIrrigation ? (
             <div className="text-3xl font-black text-slate-900 mt-0.5 tracking-tight">
-              {data.amount || '18–22 L/m²'}
+              {data.prediction || data.amount || 'Not available'}
             </div>
           ) : (
-            <div className="flex items-center gap-4 mt-1">
-              <div>
-                <span className="text-xs text-slate-500 font-bold block">N (Nitrogen)</span>
-                <span className="text-2xl font-black text-emerald-700">{data.nitrogen ?? 40} <span className="text-xs font-medium text-slate-500">kg/ha</span></span>
-              </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div>
-                <span className="text-xs text-slate-500 font-bold block">P (Phosphorus)</span>
-                <span className="text-2xl font-black text-sky-700">{data.phosphorus ?? 20} <span className="text-xs font-medium text-slate-500">kg/ha</span></span>
-              </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div>
-                <span className="text-xs text-slate-500 font-bold block">K (Potassium)</span>
-                <span className="text-2xl font-black text-earth-700">{data.potassium ?? 25} <span className="text-xs font-medium text-slate-500">kg/ha</span></span>
-              </div>
+            <div className="text-3xl font-black text-emerald-700 mt-1 tracking-tight">
+              {data.recommendation || 'Not available'}
             </div>
           )}
         </div>
@@ -64,8 +51,8 @@ export const RecommendationCard = ({ type = 'irrigation', data, className = '' }
         <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-slate-200/80 shadow-xs">
           <ShieldCheck className="w-6 h-6 text-agri-600" />
           <div>
-            <span className="text-[11px] text-slate-400 font-semibold block uppercase tracking-wider">AI Confidence</span>
-            <span className="text-lg font-black text-slate-900">{confidence}%</span>
+            <span className="text-[11px] text-slate-400 font-semibold block uppercase tracking-wider">Model probability</span>
+            <span className="text-lg font-black text-slate-900">{confidence === null ? 'N/A' : `${confidence}%`}</span>
           </div>
         </div>
       </div>

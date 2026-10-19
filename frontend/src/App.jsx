@@ -11,6 +11,14 @@ import { WeatherPage } from './pages/WeatherPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AuthPage } from './pages/AuthPage';
+import { Navigate, useLocation } from 'react-router-dom';
+
+function ProtectedRoute({ children }) {
+  const location = useLocation();
+  return localStorage.getItem('agrisense_token') ? children : <Navigate to="/login" replace state={{ from: location.pathname }} />;
+}
+
 
 export function App() {
   return (
@@ -19,62 +27,64 @@ export function App() {
         <Routes>
           {/* Public Landing Page */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<AuthPage mode="login" />} />
+          <Route path="/signup" element={<AuthPage mode="signup" />} />
 
           {/* App Dashboard Routes wrapped in MainLayout */}
           <Route
             path="/dashboard"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <DashboardPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/fields"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <MyFieldsPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/soil-analysis"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <SoilAnalysisPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/weather"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <WeatherPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/recommendations"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <RecommendationsPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/history"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <HistoryPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
           <Route
             path="/settings"
             element={
-              <MainLayout>
+              <ProtectedRoute><MainLayout>
                 <SettingsPage />
-              </MainLayout>
+              </MainLayout></ProtectedRoute>
             }
           />
         </Routes>

@@ -7,7 +7,6 @@ import { Button } from '../components/ui/Button';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import {
   Sparkles,
-  BookmarkPlus,
   MapPin,
   Sprout,
   Activity,
@@ -15,49 +14,14 @@ import {
   Sliders,
   Calendar,
   Share2,
-  Printer
+  Printer,
+  BookmarkPlus
 } from 'lucide-react';
 
 export const RecommendationsPage = () => {
   const navigate = useNavigate();
-  const { activeRecommendation, selectedField, handleSaveRecommendation, addToast } = useApp();
-
-  const rec = activeRecommendation || {
-    fieldName: selectedField?.name || 'North Field',
-    cropType: selectedField?.crop || 'Wheat',
-    growthStage: selectedField?.growthStage || 'Vegetative',
-    generatedAt: '2026-09-04 09:30 AM',
-    soilMoisture: 42,
-    irrigation: {
-      status: 'IRRIGATE TODAY',
-      amount: '18–22 L/m²',
-      timing: 'Early morning (06:00 - 08:00 AM)',
-      confidence: 91,
-      reasons: [
-        'Soil moisture is below optimal range (42% vs 50% target).',
-        'Low expected rainfall over the next 24 hours (2 mm).',
-        'Crop is in vegetative stage requiring peak transpiration water.',
-        'Temperature is moderately high (28°C).'
-      ]
-    },
-    fertilizer: {
-      nitrogen: 40,
-      phosphorus: 20,
-      potassium: 25,
-      confidence: 87,
-      reasons: [
-        'Nitrogen level requires supplementation for optimal leaf canopy.',
-        'Phosphorus is adequate for active root absorption.',
-        'Potassium level is moderate.'
-      ]
-    },
-    factorWeights: [
-      { factor: 'Soil Moisture', weight: '38%', impact: 'High', status: 'Deficient (42%)' },
-      { factor: 'Weather Forecast', weight: '27%', impact: 'High', status: 'Low Rain (2mm)' },
-      { factor: 'Crop Growth Stage', weight: '20%', impact: 'Medium', status: 'Vegetative' },
-      { factor: 'Nutrient Levels (NPK)', weight: '15%', impact: 'Medium', status: 'N-Deficient' }
-    ]
-  };
+  const { activeRecommendation, addToast, handleSaveRecommendation } = useApp();
+  const rec = activeRecommendation;
 
   const handlePrint = () => {
     window.print();
@@ -67,12 +31,23 @@ export const RecommendationsPage = () => {
     addToast('Recommendation summary link copied to clipboard.', 'info', 'Share');
   };
 
+  if (!rec) return (
+    <div className="space-y-6">
+      <PageHeader title="AI Field Analysis & Precision Recommendations" subtitle="Your saved model predictions will appear here after you analyze a field." />
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+        <h2 className="text-lg font-bold text-slate-900">No analysis yet</h2>
+        <p className="mt-2 text-sm text-slate-500">Add a field, then run an analysis to save fertilizer and irrigation predictions.</p>
+        <div className="mt-5 flex justify-center gap-3"><Button onClick={() => navigate('/fields')}>Add Field</Button><Button variant="outline" onClick={() => navigate('/soil-analysis')}>Analyze Field</Button></div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       {/* Top Page Header */}
       <PageHeader
         title="AI Field Analysis & Precision Recommendations"
-        subtitle="Custom real-time irrigation & fertilizer prescription calculated by AgriSense AI algorithms."
+        subtitle="Fertilizer category and irrigation-need predictions from the connected ML models."
         action={
           <div className="flex items-center gap-3">
             <Button
@@ -83,14 +58,7 @@ export const RecommendationsPage = () => {
             >
               Print Report
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={BookmarkPlus}
-              onClick={handleSaveRecommendation}
-            >
-              Save Recommendation
-            </Button>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">Analysis is saved automatically</span>
           </div>
         }
       />
@@ -177,9 +145,9 @@ export const RecommendationsPage = () => {
           <div className="flex items-center gap-2 text-agri-300 text-xs font-bold uppercase tracking-wider">
             <CheckCircle2 className="w-4 h-4 text-agri-400" /> Action Summary
           </div>
-          <h3 className="text-lg font-bold text-white">Apply 18–22 L/m² water early tomorrow morning + 40 kg/ha N formulation</h3>
+          <h3 className="text-lg font-bold text-white">Fertilizer: {rec.fertilizer?.recommendation || 'No ML result yet'} · Irrigation: {rec.irrigation?.prediction || 'No ML result yet'}</h3>
           <p className="text-xs text-agri-100 leading-relaxed">
-            Following this recommendation will restore soil moisture to optimal 50% capacity, eliminate nitrogen deficiency, and support vigorous vegetative canopy formation.
+            These are prototype model predictions. The current models do not calculate fertilizer quantity, water volume, or irrigation timing. Verify recommendations with soil-test results and local agricultural guidance.
           </p>
         </div>
 

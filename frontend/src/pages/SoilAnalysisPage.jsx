@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -23,35 +23,45 @@ export const SoilAnalysisPage = () => {
 
   // Form input state initialized with selected field values or default defaults
   const [formData, setFormData] = useState({
-    fieldId: selectedField?.id || 1,
+    fieldId: selectedField?.id || '',
     fieldName: selectedField?.name || 'North Field',
-    soilMoisture: selectedField?.soilMoisture ?? 42,
-    nitrogen: selectedField?.nitrogen ?? 48,
-    phosphorus: selectedField?.phosphorus ?? 32,
-    potassium: selectedField?.potassium ?? 41,
+    soilMoisture: selectedField?.soilMoisture ?? 25,
+    soilMoistureVolume: selectedField?.soilMoistureVolume ?? 1059,
+    pH: selectedField?.pH ?? 7.1,
+    nitrogen: selectedField?.nitrogen ?? 108,
+    phosphorus: selectedField?.phosphorus ?? 11.59,
+    potassium: selectedField?.potassium ?? 130,
     temperature: selectedField?.temperature ?? 28,
     humidity: selectedField?.humidity ?? 65,
     rainfall: selectedField?.rainfall ?? 12,
-    cropType: selectedField?.crop || 'Wheat',
+    cropType: selectedField?.cropType || selectedField?.crop || 'Cotton',
     growthStage: selectedField?.growthStage || 'Vegetative',
-    soilType: selectedField?.soilType || 'Loamy',
+    soilType: selectedField?.soilType || 'Black',
     area: selectedField?.area ?? 2.5
   });
 
+  useEffect(() => {
+    if (!selectedField) return;
+    setFormData(prev => ({ ...prev, fieldId: selectedField.id, fieldName: selectedField.name, cropType: selectedField.cropType || selectedField.crop || 'Cotton', soilType: selectedField.soilType || 'Black', growthStage: selectedField.growthStage || 'Vegetative', soilMoisture: selectedField.soilMoisture ?? prev.soilMoisture, pH: selectedField.pH ?? prev.pH, nitrogen: selectedField.nitrogen ?? prev.nitrogen, phosphorus: selectedField.phosphorus ?? prev.phosphorus, potassium: selectedField.potassium ?? prev.potassium, district: selectedField.district || prev.district, soilMoistureVolume: selectedField.soilMoistureVolume ?? prev.soilMoistureVolume, area: selectedField.area ?? prev.area }));
+  }, [selectedField]);
+
   const handleFieldChange = (fieldId) => {
-    const f = fields.find(item => item.id === Number(fieldId));
+    const f = fields.find(item => String(item.id) === String(fieldId));
     if (f) {
       setFormData({
         fieldId: f.id,
         fieldName: f.name,
         soilMoisture: f.soilMoisture,
+        soilMoistureVolume: f.soilMoistureVolume ?? 1059,
+        district: f.district || 'Nagpur',
+        pH: f.pH ?? 7.1,
         nitrogen: f.nitrogen,
         phosphorus: f.phosphorus,
         potassium: f.potassium,
         temperature: f.temperature,
         humidity: f.humidity,
         rainfall: f.rainfall,
-        cropType: f.crop,
+        cropType: f.cropType || f.crop,
         growthStage: f.growthStage,
         soilType: f.soilType,
         area: f.area
@@ -81,7 +91,7 @@ export const SoilAnalysisPage = () => {
     <div className="space-y-8">
       <PageHeader
         title="AI Soil & Environmental Analysis"
-        subtitle="Input live field telemetry and soil lab parameters to generate instant irrigation and NPK dosage recommendations."
+        subtitle="Input live field telemetry and soil lab parameters to generate fertilizer-category and irrigation-need predictions."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -241,6 +251,33 @@ export const SoilAnalysisPage = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Soil pH</label>
+                  <input
+                    type="number"
+                    name="pH"
+                    min="0"
+                    max="14"
+                    step="0.1"
+                    value={formData.pH}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:ring-agri-500 bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">District</label>
+                  <input
+                    type="text"
+                    name="district"
+                    value={formData.district || 'Nagpur'}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:ring-agri-500 bg-slate-50"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Crop Type</label>
@@ -250,11 +287,8 @@ export const SoilAnalysisPage = () => {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:ring-agri-500 bg-slate-50"
                   >
-                    <option value="Wheat">Wheat</option>
-                    <option value="Rice">Rice</option>
                     <option value="Cotton">Cotton</option>
-                    <option value="Maize">Maize (Corn)</option>
-                    <option value="Sugarcane">Sugarcane</option>
+                    <option value="Soybean">Soybean</option>
                   </select>
                 </div>
 
@@ -269,7 +303,6 @@ export const SoilAnalysisPage = () => {
                     <option value="Germination">Germination</option>
                     <option value="Vegetative">Vegetative</option>
                     <option value="Flowering">Flowering</option>
-                    <option value="Fruiting">Fruiting</option>
                     <option value="Maturity">Maturity</option>
                   </select>
                 </div>
@@ -282,10 +315,10 @@ export const SoilAnalysisPage = () => {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:ring-agri-500 bg-slate-50"
                   >
-                    <option value="Loamy">Loamy</option>
-                    <option value="Clay">Clay</option>
-                    <option value="Sandy Loam">Sandy Loam</option>
-                    <option value="Black Soil">Black Soil</option>
+                    <option value="Black">Black</option>
+                    <option value="Red">Red</option>
+                    <option value="Alluvial">Alluvial</option>
+                    <option value="Laterite">Laterite</option>
                   </select>
                 </div>
               </div>
@@ -348,7 +381,7 @@ export const SoilAnalysisPage = () => {
               <Sparkles className="w-4 h-4 text-agri-400" /> Backend API Contract Ready
             </div>
             <p className="text-xs text-agri-100 leading-relaxed">
-              When connected to your future Python ML backend, submitting this form issues a <code className="bg-agri-950 px-1.5 py-0.5 rounded text-agri-300 font-mono">POST /api/analyze</code> request containing all 10 telemetry factors.
+              Submitting this form sends a request to the connected Flask ML backend: <code className="bg-agri-950 px-1.5 py-0.5 rounded text-agri-300 font-mono">POST /api/analyze</code>.
             </p>
           </div>
         </div>

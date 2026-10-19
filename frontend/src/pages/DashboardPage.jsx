@@ -39,15 +39,7 @@ export const DashboardPage = () => {
   const navigate = useNavigate();
   const { selectedField, weather, chartsData, activeRecommendation, history } = useApp();
 
-  const field = selectedField || {
-    name: 'North Field',
-    crop: 'Wheat',
-    growthStage: 'Vegetative',
-    soilMoisture: 42,
-    temperature: 28,
-    humidity: 65,
-    rainfall: 12
-  };
+  const field = selectedField || { name: 'No field selected', crop: '—', growthStage: '—', soilMoisture: '—' };
 
   const tableColumns = [
     { header: 'ID', accessor: 'id' },
@@ -96,9 +88,9 @@ export const DashboardPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="Soil Moisture"
-          value={field.soilMoisture ?? 42}
+          value={field.soilMoisture ?? '—'}
           unit="%"
-          status={field.soilMoisture < 45 ? 'Moderate' : 'Optimal'}
+          status={typeof field.soilMoisture === 'number' ? (field.soilMoisture < 45 ? 'Moderate' : 'Optimal') : 'No data'}
           icon={Droplets}
           trend="-2% vs yesterday"
           trendDirection="down"
@@ -130,14 +122,14 @@ export const DashboardPage = () => {
 
         <StatCard
           title="Active Crop"
-          value={field.crop || 'Wheat'}
+          value={field.crop || '—'}
           icon={Sprout}
           subtitle="Selected field"
         />
 
         <StatCard
           title="Growth Stage"
-          value={field.growthStage || 'Vegetative'}
+          value={field.growthStage || '—'}
           icon={Activity}
           subtitle="Phase 2 of 4"
         />
@@ -163,31 +155,12 @@ export const DashboardPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <RecommendationCard
             type="irrigation"
-            data={activeRecommendation?.irrigation || {
-              status: 'Irrigate Today',
-              amount: '18–22 L/m²',
-              timing: 'Early morning (06:00 - 08:00 AM)',
-              confidence: 91,
-              reasons: [
-                'Soil moisture is below optimal range (42% vs 50% target).',
-                'Low rainfall probability (2 mm expected over next 24h).'
-              ]
-            }}
+            data={activeRecommendation?.irrigation || { status: 'No prediction yet', confidence: 0, reasons: ['Run an analysis to see the model result.'] }}
           />
 
           <RecommendationCard
             type="fertilizer"
-            data={activeRecommendation?.fertilizer || {
-              nitrogen: 40,
-              phosphorus: 20,
-              potassium: 25,
-              confidence: 87,
-              timing: 'Apply within 48 hours',
-              reasons: [
-                'Current nutrient levels indicate moderate nitrogen deficiency.',
-                'Phosphorus is adequate for current growth stage.'
-              ]
-            }}
+            data={activeRecommendation?.fertilizer || { recommendation: 'No prediction yet', confidence: 0, reasons: ['Run an analysis to see the model result.'] }}
           />
         </div>
       </div>

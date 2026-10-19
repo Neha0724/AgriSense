@@ -11,12 +11,30 @@ import {
   Cpu,
   BarChart3,
   ShieldCheck,
-  Layers
+  Layers,
+  UserRound, 
+  ChevronDown, 
+  LogOut, 
+  Settings
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
+import { Link } from 'react-router-dom';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+  const { user, setUser } = useApp();
+
+  const [showProfileMenu, setShowProfileMenu] = React.useState(false);
+  const isLoggedIn = Boolean(localStorage.getItem('agrisense_token'));
+
+  const handleLogout = () => {
+    localStorage.removeItem('agrisense_token');
+    localStorage.removeItem('agrisense_user');
+    setUser(null);
+    setShowProfileMenu(false);
+    window.location.href = '/';
+  };
 
   const steps = [
     {
@@ -74,29 +92,99 @@ export const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-agri-200 selection:text-agri-900">
-      {/* Top Navbar */}
-      <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-agri-700 flex items-center justify-center text-white shadow-md shadow-agri-700/20">
-            <Sprout className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-              AgriSense <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-agri-100 text-agri-800 border border-agri-200">AI</span>
-            </span>
-            <span className="text-[10px] text-slate-500 font-medium block">Smarter Decisions. Healthier Fields.</span>
-          </div>
-        </div>
+      
+  {/* Top Navbar */}
+  <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-agri-700 flex items-center justify-center text-white shadow-md">
+        <Sprout className="w-6 h-6" />
+      </div>
+      <div>
+        <span className="text-xl font-black text-slate-900">AgriSense</span>
+        <span className="text-[10px] text-slate-500 block">Smarter Decisions. Healthier Fields.</span>
+      </div>
+    </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-            Dashboard
-          </Button>
-          <Button variant="primary" size="sm" icon={Sparkles} onClick={() => navigate('/soil-analysis')}>
-            Analyze Field
-          </Button>
-        </div>
-      </header>
+    <div className="flex items-center gap-2 sm:gap-3">
+      {isLoggedIn && (
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="hidden sm:block text-sm font-semibold text-slate-600 hover:text-emerald-700">Dashboard
+        </button>
+      )}
+
+      <div className="relative">
+        <button
+          onClick={() => setShowProfileMenu(!showProfileMenu)}
+          aria-label="Open account menu"
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2"
+        >
+          <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center">
+            {isLoggedIn ? ((user?.name || 'U').charAt(0).toUpperCase()) : (<UserRound className="w-5 h-5" />)}
+          </span>
+
+          {isLoggedIn && (
+            <span className="hidden sm:inline text-sm font-semibold text-slate-800 max-w-32 truncate">
+              {user?.name || 'My Profile'}
+            </span>
+          )}
+
+          <ChevronDown className="w-4 h-4 text-slate-500" />
+        </button>
+
+        {showProfileMenu && (
+          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-xl z-50 py-2">
+            {isLoggedIn ? (
+              <>
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <p className="text-sm font-bold text-slate-900 truncate">{user?.name || 'My Account'}</p>
+                  <p className="text-xs text-slate-500">Signed in</p>
+                </div>
+
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50"
+                >
+                  <Settings className="w-4 h-4 inline mr-2" />
+                  Profile & Settings
+                </button>
+
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50"
+                >
+                  <Sprout className="w-4 h-4 inline mr-2" />
+                  My Dashboard
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="w-4 h-4 inline mr-2" />Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-slate-50">
+                  Sign in
+                </button>
+
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="w-full text-left px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                  Create account
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  </header>
+
 
       {/* Hero Section */}
       <section className="pt-8 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

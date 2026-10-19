@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
 import { User, Sliders, Bell, Save, ShieldCheck } from 'lucide-react';
 
 export const SettingsPage = () => {
-  const { settings, handleUpdateSettings } = useApp();
+  const { settings, user, handleUpdateSettings } = useApp();
 
   const [form, setForm] = useState(
     settings || {
@@ -30,6 +30,16 @@ export const SettingsPage = () => {
       }
     }
   );
+
+  useEffect(() => {
+    if (settings || user) {
+      setForm(prev => ({
+        ...prev,
+        ...(settings || {}),
+        profile: { ...prev.profile, ...(settings?.profile || {}), name: user?.name || settings?.profile?.name || prev.profile.name, email: user?.email || settings?.profile?.email || prev.profile.email }
+      }));
+    }
+  }, [settings, user]);
 
   const [saving, setSaving] = useState(false);
 

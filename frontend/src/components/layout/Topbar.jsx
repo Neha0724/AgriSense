@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import {
   Bell,
@@ -8,15 +8,21 @@ import {
   Sprout,
   User,
   MapPin,
-  Check
+  Check,
+  LogOut,
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 export const Topbar = () => {
+  const navigate = useNavigate();
   const location = useLocation();
-  const { fields, selectedField, setSelectedField, settings, addToast } = useApp();
+  const { fields, selectedField, setSelectedField, settings, user, addToast } = useApp();
+  const displayName = user?.name || settings?.profile?.name || 'Farmer';
+  const displayEmail = user?.email || settings?.profile?.email || 'AgriSense account';
   const [showFieldMenu, setShowFieldMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Page titles map
   const getPageTitle = (path) => {
@@ -46,6 +52,12 @@ export const Topbar = () => {
     { id: 3, text: 'AI generated new fertilizer dosage plan', time: '3h ago', unread: false }
   ];
 
+  const handleLogout = () => {
+    localStorage.removeItem('agrisense_token');
+    localStorage.removeItem('agrisense_user');
+    window.location.href = '/';
+  };
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -54,16 +66,16 @@ export const Topbar = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+    <header className="min-h-16 bg-white border-b border-slate-200/80 px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sticky top-0 z-20 shadow-xs min-w-0">
       {/* Page Title */}
       <div className="flex items-center gap-3">
-        <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
+        <h2 className="text-sm sm:text-lg font-bold text-slate-800 tracking-tight truncate max-w-[42vw] sm:max-w-none">
           {getPageTitle(location.pathname)}
         </h2>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
         {/* Search bar (Desktop) */}
         <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
@@ -81,7 +93,7 @@ export const Topbar = () => {
           <div className="relative">
             <button
               onClick={() => setShowFieldMenu(!showFieldMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-agri-50 hover:bg-agri-100/80 border border-agri-200/80 text-agri-900 text-xs font-bold transition-colors"
+              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-agri-50 hover:bg-agri-100/80 border border-agri-200/80 text-agri-900 text-xs font-bold transition-colors"
             >
               <Sprout className="w-4 h-4 text-agri-700" />
               <span className="max-w-[100px] sm:max-w-[140px] truncate">
@@ -152,19 +164,42 @@ export const Topbar = () => {
           )}
         </div>
 
-        {/* Farmer Profile Avatar */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-earth-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-            {settings?.profile?.name ? settings.profile.name.charAt(0) : 'R'}
-          </div>
-          <div className="hidden lg:block text-left">
-            <span className="text-xs font-bold text-slate-900 block leading-tight">
-              {settings?.profile?.name || 'Farmer Rajesh'}
+        
+        {/* Profile Dropdown */}
+        <div className="relative shrink-0">
+          <button
+          onClick={() => setShowProfileMenu(!showProfileMenu)}
+          className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <div className="w-8 h-8 rounded-full bg-earth-600 text-white flex items-center justify-center font-bold text-xs">
+              {(user?.name || 'U').charAt(0).toUpperCase()}
+            </div>
+
+            <span className="hidden sm:block text-xs font-bold text-slate-900 max-w-28 truncate">
+              {user?.name || 'My Profile'}
             </span>
-            <span className="text-[10px] text-slate-500 block leading-tight">
-              {settings?.profile?.farmName || 'Green Valley Farm'}
-            </span>
+
+            <ChevronDown className="w-4 h-4 text-slate-500" />
+          </button>
+
+        {showProfileMenu && (
+          <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50">
+            <div className="px-4 py-2 border-b border-slate-100">
+              <p className="text-sm font-bold text-slate-900 truncate">{user?.name || 'My Account'}</p>
+              <p className="text-xs text-slate-500">Account</p>
+            </div>
+            <button
+            onClick={() => navigate('/settings')}
+            className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50">
+              <SettingsIcon className="w-4 h-4 inline mr-2" />Profile & Settings
+            </button>
+
+            <button
+            onClick={handleLogout}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+              <LogOut className="w-4 h-4 inline mr-2" />Log out
+              </button>
           </div>
+          )}
         </div>
       </div>
     </header>
