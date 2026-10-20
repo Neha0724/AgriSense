@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { NutrientCard } from '../components/ui/NutrientCard';
 import { Button } from '../components/ui/Button';
+import { apiService } from '../services/api';
 import {
   Sparkles,
   FlaskConical,
@@ -37,8 +38,12 @@ export const SoilAnalysisPage = () => {
     cropType: selectedField?.cropType || selectedField?.crop || 'Cotton',
     growthStage: selectedField?.growthStage || 'Vegetative',
     soilType: selectedField?.soilType || 'Black',
+    district: selectedField?.district || 'Nagpur',
     area: selectedField?.area ?? 2.5
   });
+  const [sowingDate, setSowingDate] = useState('');
+  const [advisoryLoading, setAdvisoryLoading] = useState(false);
+  const [advisoryError, setAdvisoryError] = useState('');
 
   useEffect(() => {
     if (!selectedField) return;
@@ -79,13 +84,62 @@ export const SoilAnalysisPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      await handleAnalyzeField(formData);
+    setAdvisoryError('');
+
+    // Run the existing ML analysis and the weather advisory together.
+    const [mlOutcome, advisoryOutcome] = await Promise.allSettled([
+      handleAnalyzeField(formData),
+      apiService.getIrrigationAdvisory({ ...formData, sowingDate })
+    ]);
+
+    // Preserve advisory data while navigating to Recommendations.
+    if (advisoryOutcome.status === 'fulfilled') {
+      sessionStorage.setItem(
+        'agrisense_irrigation_advisory',
+        JSON.stringify(advisoryOutcome.value)
+      );
+      sessionStorage.removeItem('agrisense_irrigation_advisory_error');
+    } else {
+      sessionStorage.removeItem('agrisense_irrigation_advisory');
+      sessionStorage.setItem(
+        'agrisense_irrigation_advisory_error',
+        advisoryOutcome.reason?.message || 'Weather advisory failed.'
+      );
+    }
+
+    if (mlOutcome.status === 'rejected') {
+      const message = mlOutcome.reason?.message || 'ML analysis failed.';
+      sessionStorage.setItem('agrisense_ml_analysis_error', message);
+    } else {
+      sessionStorage.removeItem('agrisense_ml_analysis_error');
+    }
+
+    // Navigate if at least one result is available; the Recommendations page
+    // can show whichever result succeeded and any corresponding error.
+    if (mlOutcome.status === 'fulfilled' || advisoryOutcome.status === 'fulfilled') {
       navigate('/recommendations');
-    } catch (err) {
-      console.error(err);
+    } else {
+      setAdvisoryError('Both ML analysis and weather advisory failed. Please check the backend and try again.');
     }
   };
+
+  const handleGetIrrigationAdvisory = async () => {
+    setAdvisoryLoading(true);
+    setAdvisoryError('');
+    try {
+      const result = await apiService.getIrrigationAdvisory({ ...formData, sowingDate });
+      sessionStorage.setItem('agrisense_irrigation_advisory', JSON.stringify(result));
+      sessionStorage.removeItem('agrisense_irrigation_advisory_error');
+      navigate('/recommendations');
+    } catch (err) {
+      const message = err.message || 'Unable to load irrigation advisory.';
+      sessionStorage.setItem('agrisense_irrigation_advisory_error', message);
+      setAdvisoryError(message);
+    } finally {
+      setAdvisoryLoading(false);
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -322,10 +376,26 @@ export const SoilAnalysisPage = () => {
                   </select>
                 </div>
               </div>
+
+              <div className="pt-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sowing Date (optional)</label>
+                <input
+                  type="date"
+                  name="sowingDate"
+                  value={sowingDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setSowingDate(e.target.value)}
+                  className="w-full sm:w-1/2 px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:ring-agri-500 bg-slate-50"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">If provided, the advisory estimates crop stage from this date; otherwise it uses your selected growth stage.</p>
+              </div>
             </div>
 
-            {/* Analyze Button */}
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+            {/* Existing ML analysis and separate weather-based advisory */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <Button type="button" variant="outline" size="lg" icon={Droplets} isLoading={advisoryLoading} onClick={handleGetIrrigationAdvisory} className="w-full sm:w-auto">
+                Get Irrigation Advisory
+              </Button>
               <Button
                 type="submit"
                 variant="primary"
@@ -334,10 +404,17 @@ export const SoilAnalysisPage = () => {
                 isLoading={isAnalyzing}
                 className="w-full sm:w-auto shadow-md shadow-agri-700/30"
               >
-                Analyze Field with AI
+                Run Combined Analysis
               </Button>
             </div>
           </form>
+
+          {advisoryError && (
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              <strong className="block mb-1">Could not load irrigation advisory</strong>
+              {advisoryError}
+            </div>
+          )}
         </div>
 
         {/* Right 1 Column: Live Visual Health Summary */}

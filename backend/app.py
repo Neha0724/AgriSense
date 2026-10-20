@@ -11,6 +11,10 @@ from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from dotenv import load_dotenv
+import requests
+from datetime import date
+from flask import request, jsonify
+from irrigation_advisory import get_crop_stage, get_water_estimate
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / '.env')
@@ -252,6 +256,286 @@ def get_analysis(analysis_id):
     doc=db.analyses.find_one({'_id':oid,'user_id':g.user['_id']})
     if not doc: return jsonify({'error':'Analysis not found.'}),404
     return jsonify(serialize(doc))
+
+@app.get('/api/weather')
+def get_weather():
+    location = request.args.get('location', '').strip()
+
+    if not location:
+        return jsonify({'error': 'Location is required.'}), 400
+
+    try:
+        # Find location coordinates
+        geo_response = requests.get(
+            'https://geocoding-api.open-meteo.com/v1/search',
+            params={
+                'name': location,
+                'count': 10,
+                'language': 'en',
+                'format': 'json'
+            },
+            timeout=15
+        )
+        geo_response.raise_for_status()
+
+        places = geo_response.json().get('results', [])
+
+        # Select an Indian location
+        place = next(
+            (p for p in places if p.get('country_code') == 'IN'),
+            None
+        )
+
+        if not place:
+            return jsonify({'error': 'Indian location not found.'}), 404
+
+        # Fetch recent weather and forecast
+        weather_response = requests.get(
+            'https://api.open-meteo.com/v1/forecast',
+            params={
+                'latitude': place['latitude'],
+                'longitude': place['longitude'],
+                'daily': (
+                    'precipitation_sum,'
+                    'temperature_2m_max,'
+                    'temperature_2m_min'
+                ),
+                'past_days': 3,
+                'forecast_days': 7,
+                'timezone': 'Asia/Kolkata'
+            },
+            timeout=20
+        )
+        weather_response.raise_for_status()
+
+        weather = weather_response.json()
+        daily = weather.get('daily', {})
+
+        return jsonify({
+            'location': {
+                'name': place.get('name'),
+                'district': place.get('admin2'),
+                'state': place.get('admin1'),
+                'latitude': place['latitude'],
+                'longitude': place['longitude']
+            },
+            'weather': daily,
+            'units': weather.get('daily_units', {}),
+            'source': 'Open-Meteo'
+        }), 200
+
+    except requests.RequestException:
+        return jsonify({
+            'error': 'Weather service unavailable. Please try again.'
+        }), 502
+
+    
+@app.post('/api/irrigation/advisory')
+def irrigation_advisory():
+    data = request.get_json(silent=True) or {}
+
+    crop = str(data.get('crop', '')).strip().title()
+    location = str(data.get('location', '')).strip()
+    sowing_date = data.get('sowing_date')
+    current_stage = data.get('current_stage')
+
+    soil_type = str(data.get('soil_type', '')).strip().title()
+    
+    if soil_type not in ('Black', 'Red', 'Clay', 'Alluvial', 'Laterite'):
+        return jsonify({
+            'error': 'soil_type must be Black, Red, Clay, Alluvial, or Laterite.'
+        }), 400
+
+    farmer_moisture = data.get('farmer_soil_moisture_pct')
+
+    if farmer_moisture is not None:
+        try:
+            farmer_moisture = float(farmer_moisture)
+        except (TypeError, ValueError):
+            return jsonify({
+                'error': 'farmer_soil_moisture_pct must be a number.'
+            }), 400
+        
+        if not 0 <= farmer_moisture <= 100:
+            return jsonify({
+                'error': 'farmer_soil_moisture_pct must be between 0 and 100.'
+            }), 400
+
+    if crop not in ('Cotton', 'Soybean'):
+        return jsonify({
+            'error': 'Crop must be Cotton or Soybean.'
+        }), 400
+
+    if not location:
+        return jsonify({
+            'error': 'Location is required.'
+        }), 400
+
+    try:
+        stage, stage_source = get_crop_stage(
+            crop,
+            sowing_date=sowing_date,
+            current_stage=current_stage
+        )
+
+        # Fetch weather using the existing weather endpoint logic
+        # directly through the existing Open-Meteo API.
+        geo_response = requests.get(
+            'https://geocoding-api.open-meteo.com/v1/search',
+            params={
+                'name': location,
+                'count': 10,
+                'language': 'en',
+                'format': 'json'
+            },
+            timeout=15
+        )
+        geo_response.raise_for_status()
+
+        places = geo_response.json().get('results', [])
+        place = next(
+            (p for p in places if p.get('country_code') == 'IN'),
+            None
+        )
+
+        if not place:
+            return jsonify({
+                'error': 'Indian location not found.'
+            }), 404
+
+        weather_response = requests.get(
+            'https://api.open-meteo.com/v1/forecast',
+            params={
+                'latitude': place['latitude'],
+                'longitude': place['longitude'],
+                'daily': 'precipitation_sum',
+                'hourly': (
+                    'et0_fao_evapotranspiration,'
+                    'soil_moisture_0_to_7cm,'
+                    'soil_moisture_7_to_28cm'
+                ),
+                'past_days': 1,
+                'forecast_days': 2,
+                'timezone': 'Asia/Kolkata'
+            },
+            timeout=20
+        )
+        weather_response.raise_for_status()
+        weather = weather_response.json()
+
+        daily = weather.get('daily', {})
+        hourly = weather.get('hourly', {})
+
+        soil_moisture_surface = hourly.get('soil_moisture_0_to_7cm', [])
+        soil_moisture_deep = hourly.get('soil_moisture_7_to_28cm', [])
+
+        today = date.today().isoformat()
+        hourly_times = hourly.get('time', [])
+
+        surface_today = [
+            float(value)
+            for timestamp, value in zip(hourly_times, soil_moisture_surface)
+            if timestamp.startswith(today) and value is not None
+        ]
+
+        deep_today = [
+            float(value)
+            for timestamp, value in zip(hourly_times, soil_moisture_deep)
+            if timestamp.startswith(today) and value is not None
+        ]
+
+        soil_moisture = {
+            'surface_mean_m3_m3': (
+                round(sum(surface_today) / len(surface_today), 4)
+                if surface_today else None
+            ),
+            'deep_mean_m3_m3': (
+                round(sum(deep_today) / len(deep_today), 4)
+                if deep_today else None
+            ),
+            'source': 'Open-Meteo modelled estimate'
+        }
+
+        print("Today's surface moisture values:", len(surface_today))
+        print("Today's deep moisture values:", len(deep_today))
+        print("Surface moisture observations:", len(soil_moisture_surface))
+        print("Deep moisture observations:", len(soil_moisture_deep))
+
+        # Use today's daily rainfall and sum today's hourly ET0.
+        dates = daily.get('time', [])
+        rainfall_values = daily.get('precipitation_sum', [])
+
+        if today not in dates:
+            return jsonify({
+                'error': 'Today weather data is unavailable.'
+            }), 502
+
+        index = dates.index(today)
+        rainfall = float(rainfall_values[index] or 0)
+
+        hourly_times = hourly.get('time', [])
+        hourly_et0 = hourly.get('et0_fao_evapotranspiration', [])
+        et0_values = [
+            float(value)
+            for timestamp, value in zip(hourly_times, hourly_et0)
+            if timestamp.startswith(today) and value is not None
+        ]
+
+        if not et0_values:
+            return jsonify({
+                'error': 'ET0 data is unavailable for today.'
+            }), 502
+
+        et0 = sum(et0_values)
+
+        # Illustrative coefficient only. Stage-specific values
+        # need locally validated crop guidance.
+        kc = 1.10 if crop == 'Soybean' else 1.15
+
+        surface_value = (
+            round(sum(surface_today) / len(surface_today), 4)
+            if surface_today else None
+        )
+        
+        deep_value = (
+            round(sum(deep_today) / len(deep_today), 4)
+            if deep_today else None
+        )
+        
+        water = get_water_estimate(
+            et0_mm=et0,
+            crop=crop,
+            crop_stage=stage,
+            effective_rain_mm=rainfall,
+            soil_type=soil_type,
+            surface_moisture=surface_value,
+            deep_moisture=deep_value,
+        )
+
+
+        return jsonify({
+            'crop': crop,
+            'location': place.get('name'),
+            'crop_stage': stage,
+            'stage_source': stage_source,
+            'weather_source': 'Open-Meteo',
+            'today_rainfall_mm': rainfall,
+            'today_et0_mm': round(et0, 2),
+            'soil_moisture': soil_moisture,
+            'water_estimate': water,
+            'farmer_entered_soil_moisture_pct': farmer_moisture,
+            'status': (
+                'Experimental advisory only. '
+                'Not a field-validated irrigation prescription.'
+            )
+        }), 200
+
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except requests.RequestException:
+        return jsonify({
+            'error': 'Weather service unavailable.'
+        }), 502
 
 if __name__=='__main__':
     app.run(host=os.getenv('FLASK_HOST','127.0.0.1'),port=int(os.getenv('FLASK_PORT','5000')),debug=os.getenv('FLASK_DEBUG','false').lower()=='true')
