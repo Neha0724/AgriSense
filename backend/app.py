@@ -807,7 +807,7 @@ def irrigation_advisory():
             'water_estimate': water,
             'farmer_entered_soil_moisture_pct': farmer_moisture,
             'status': (
-                'Experimental advisory only. '
+                'Indicative advisory. '
                 'Not a field-validated irrigation prescription.'
             )
         }), 200

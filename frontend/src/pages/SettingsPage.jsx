@@ -194,46 +194,6 @@ export const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Notifications Settings */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Bell className="w-5 h-5 text-agri-700" />
-            <h3 className="text-base font-bold text-slate-900">Notification Alerts</h3>
-          </div>
-
-          <div className="space-y-3 text-xs sm:text-sm">
-            <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 cursor-pointer">
-              <span className="font-semibold text-slate-800">Email Recommendation Alerts</span>
-              <input
-                type="checkbox"
-                checked={form.notifications.emailAlerts}
-                onChange={() => handleToggleNotification('emailAlerts')}
-                className="w-4 h-4 text-agri-600 rounded focus:ring-agri-500"
-              />
-            </label>
-
-            <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 cursor-pointer">
-              <span className="font-semibold text-slate-800">SMS Instant Weather Warnings</span>
-              <input
-                type="checkbox"
-                checked={form.notifications.smsAlerts}
-                onChange={() => handleToggleNotification('smsAlerts')}
-                className="w-4 h-4 text-agri-600 rounded focus:ring-agri-500"
-              />
-            </label>
-
-            <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 cursor-pointer">
-              <span className="font-semibold text-slate-800">Daily Morning Field Intelligence Brief</span>
-              <input
-                type="checkbox"
-                checked={form.notifications.dailySummary}
-                onChange={() => handleToggleNotification('dailySummary')}
-                className="w-4 h-4 text-agri-600 rounded focus:ring-agri-500"
-              />
-            </label>
-          </div>
-        </div>
-
         {/* Submit */}
         <div className="flex justify-end">
           <Button

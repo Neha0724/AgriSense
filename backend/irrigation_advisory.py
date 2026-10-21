@@ -43,7 +43,7 @@ def get_crop_stage(crop, sowing_date=None, current_stage=None):
 
 def get_crop_coefficient(crop, crop_stage):
     """
-    Experimental crop coefficients based on the project's
+    Indicative crop coefficients based on the project's
     existing prototype dataset.
 
     Stage mapping is approximate and is not field-validated.
@@ -137,8 +137,8 @@ def get_water_estimate(
             "source": "Open-Meteo modelled estimate",
         },
         "estimated_crop_water_use_mm_day": round(etc_mm, 2),
-        "climate_deficit_proxy_mm": round(climate_deficit_mm, 2),
-        "climate_deficit_proxy_litres_per_hectare": round(
+        "estimated_climate_deficit_mm": round(climate_deficit_mm, 2),
+        "estimated_climate_deficit_litres_per_hectare": round(
             climate_deficit_mm * 10000, 0
         ),
         "water_balance_status": (
@@ -150,7 +150,7 @@ def get_water_estimate(
                  "uses climate inputs only."
         ),
         "warning": (
-            "Experimental estimate only. Crop coefficients and "
+            "Indicative estimate only. Crop coefficients and "
             "stage mapping are provisional. The climate deficit "
             "is not a field-validated irrigation dose. "
             "Do not use it as a direct watering instruction."

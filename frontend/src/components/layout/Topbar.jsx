@@ -20,7 +20,6 @@ export const Topbar = () => {
   const displayName = user?.name || settings?.profile?.name || 'Farmer';
   const displayEmail = user?.email || settings?.profile?.email || 'AgriSense account';
   const [showFieldMenu, setShowFieldMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -45,12 +44,6 @@ export const Topbar = () => {
         return 'AgriSense Dashboard';
     }
   };
-
-  const notificationsList = [
-    { id: 1, text: 'North Field soil moisture reached 42% threshold', time: '10m ago', unread: true },
-    { id: 2, text: 'Rain expected on Friday (18 mm)', time: '1h ago', unread: true },
-    { id: 3, text: 'AI generated new fertilizer dosage plan', time: '3h ago', unread: false }
-  ];
 
   const handleLogout = () => {
     localStorage.removeItem('agrisense_token');
@@ -128,42 +121,6 @@ export const Topbar = () => {
             )}
           </div>
         )}
-
-        {/* Notifications Icon */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/70 text-slate-600 flex items-center justify-center relative transition-colors"
-            aria-label="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-agri-600 ring-2 ring-white"></span>
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div
-              className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-fade-in"
-              onClick={() => setShowNotifications(false)}
-            >
-              <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900">Farm Alerts</span>
-                <span className="text-[10px] bg-agri-100 text-agri-800 font-bold px-2 py-0.5 rounded-full">
-                  2 New
-                </span>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                {notificationsList.map((n) => (
-                  <div key={n.id} className="p-3 text-xs hover:bg-slate-50 transition-colors">
-                    <p className="text-slate-800 font-medium">{n.text}</p>
-                    <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
         
         {/* Profile Dropdown */}
         <div className="relative shrink-0">

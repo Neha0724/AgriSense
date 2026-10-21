@@ -114,8 +114,6 @@ export const SoilAnalysisPage = () => {
       sessionStorage.removeItem('agrisense_ml_analysis_error');
     }
 
-    // Navigate if at least one result is available; the Recommendations page
-    // can show whichever result succeeded and any corresponding error.
     if (mlOutcome.status === 'fulfilled' || advisoryOutcome.status === 'fulfilled') {
       navigate('/recommendations');
     } else {
@@ -451,15 +449,6 @@ export const SoilAnalysisPage = () => {
                 unit="%"
               />
             </div>
-          </div>
-
-          <div className="bg-agri-900 text-white rounded-2xl p-5 shadow-soft border border-agri-800 space-y-3">
-            <div className="flex items-center gap-2 text-agri-300 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-agri-400" /> Backend API Contract Ready
-            </div>
-            <p className="text-xs text-agri-100 leading-relaxed">
-              Submitting this form sends a request to the connected Flask ML backend: <code className="bg-agri-950 px-1.5 py-0.5 rounded text-agri-300 font-mono">POST /api/analyze</code>.
-            </p>
           </div>
         </div>
       </div>

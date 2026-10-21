@@ -1,4 +1,4 @@
-date,district,location,latitude,longitude,Crop,Crop_Stage,temperature_mean_c,humidity_mean_pct,rainfall_mm,et0_mm,soil_moisture_0_7cm_m3m3,soil_moisture_7_28cm_m3m3,soil_temperature_0_7cm_c,kc_assumption,etc_estimate_mm_day,climate_deficit_proxy_mm,climate_deficit_proxy_litres_ha,Irrigation_Need
+date,district,location,latitude,longitude,Crop,Crop_Stage,temperature_mean_c,humidity_mean_pct,rainfall_mm,et0_mm,soil_moisture_0_7cm_m3m3,soil_moisture_7_28cm_m3m3,soil_temperature_0_7cm_c,kc_assumption,etc_estimate_mm_day,estimated_climate_deficit_mm,estimated_climate_deficit_litres_ha,Irrigation_Need
 2025-10-19,Nagpur,Nagpur,21.1463,79.0849,Cotton,Germination,27.4625,56.583333333333336,0.0,4.98,0.146375,0.267,31.9125,0.35,1.743,1.743,17430.0,Low
 2025-10-20,Nagpur,Nagpur,21.1463,79.0849,Cotton,Germination,27.22083333333333,59.583333333333336,0.0,5.08,0.143,0.267,31.4375,0.35,1.7779999999999998,1.7779999999999998,17779.999999999996,Low
 2025-10-21,Nagpur,Nagpur,21.1463,79.0849,Cotton,Germination,27.95833333333333,68.91666666666667,1.0,4.54,0.1416666666666666,0.2675416666666667,31.84583333333333,0.35,1.589,0.589,5890.0,Low

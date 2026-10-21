@@ -11,7 +11,7 @@ INPUT_FILE = (
 
 OUTPUT_FILE = (
     ROOT / "data" /
-    "nagpur_crop_water_demand_experimental.csv"
+    "nagpur_crop_water_demand.csv"
 )
 
 weather = pd.read_csv(INPUT_FILE, parse_dates=["date"])
@@ -53,21 +53,21 @@ for crop, stages in CROP_COEFFICIENTS.items():
             part["et0_mm"] * kc
         )
 
-        # Simplified climate-only deficit proxy.
+        # Simplified climate-only deficit estimate.
         # Assumes all rainfall is effective, which is not
         # realistic in every condition.
-        part["climate_deficit_proxy_mm"] = (
+        part["estimated_climate_deficit_mm"] = (
             part["etc_estimate_mm_day"]
             - part["rainfall_mm"]
         ).clip(lower=0)
 
         # 1 mm over 1 hectare = 10,000 litres.
-        part["climate_deficit_proxy_litres_ha"] = (
-            part["climate_deficit_proxy_mm"] * 10000
+        part["estimated_climate_deficit_litres_ha"] = (
+            part["estimated_climate_deficit_mm"] * 10000
         )
 
         # Explicitly mark that this is not ground truth.
-        part["label_status"] = "experimental_proxy_not_field_truth"
+        part["label_status"] = "calculated_estimate"
 
         scenarios.append(part)
 
@@ -87,8 +87,8 @@ print(result[[
     "et0_mm",
     "rainfall_mm",
     "etc_estimate_mm_day",
-    "climate_deficit_proxy_mm",
-    "climate_deficit_proxy_litres_ha",
+    "estimated_climate_deficit_mm",
+    "estimated_climate_deficit_litres_ha",
 ]].head(10).to_string(index=False))
 
 print(

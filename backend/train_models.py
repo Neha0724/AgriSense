@@ -30,9 +30,6 @@ MODELS = ROOT / "models"
 REPORTS = ROOT / "reports"
 RANDOM_STATE = 42
 
-# These columns are metadata or values calculated directly
-# from the climate-water formula. Do not use them as inputs
-# when the irrigation target was derived from those formulas.
 IRRIGATION_EXCLUDE = {
     "date",
     "label_status",
@@ -40,9 +37,8 @@ IRRIGATION_EXCLUDE = {
     "Irrigation_Need",
     "kc_assumption",
     "etc_estimate_mm_day",
-    "climate_deficit_proxy_mm",
-    "climate_deficit_proxy_litres_ha",
-    "irrigation_need_proxy",
+    "estimated_climate_deficit_mm",
+    "estimated_climate_deficit_litres_ha",
 }
 
 TASKS = {
@@ -384,7 +380,7 @@ def train_task(task_name, cfg):
         "evaluation_note": (
             "Holdout metrics measure performance on this dataset only. "
             "They do not establish field accuracy. If labels are derived "
-            "from a climate-deficit formula, this is a proxy-label task, "
+            "from a climate-deficit formula, this is a formula-derived label task, "
             "not validation against observed irrigation decisions."
         ),
     }
