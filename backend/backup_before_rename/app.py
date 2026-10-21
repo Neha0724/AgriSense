@@ -24,7 +24,7 @@ JWT_SECRET = os.getenv('JWT_SECRET', '').strip()
 if not JWT_SECRET:
     raise RuntimeError('JWT_SECRET is missing. Add a strong JWT_SECRET to backend/.env and restart the backend.')
 app.config['SECRET_KEY'] = JWT_SECRET
-allowed_origins = [origin.strip() for origin in os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000,http://127.0.0.1:3000').split(',') if origin.strip()]
+allowed_origins = [origin.strip() for origin in os.getenv('FRONTEND_ORIGIN', 'agri-sense-liard.vercel.app').split(',') if origin.strip()]
 CORS(app, resources={r'/api/*': {'origins': allowed_origins}})
 
 mongo_uri = os.getenv('MONGO_URI', '').strip()
