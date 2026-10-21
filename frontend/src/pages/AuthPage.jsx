@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Sprout, Mail, LockKeyhole, UserRound, ArrowRight } from 'lucide-react';
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API = (import.meta.env.API_URL || '').replace(/\/$/, '');
 export function AuthPage({ mode = 'login' }) {
   const isSignup = mode === 'signup';
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
