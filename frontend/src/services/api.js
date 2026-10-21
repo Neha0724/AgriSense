@@ -251,7 +251,7 @@ function mapHistory(doc) {
 }
 
 const API_BASE_URL = (
-  import.meta.env.API_URL
+  import.meta.env.VITE_API_URL
 ).replace(/\/+$/, '');
 
 async function apiRequest(path, options = {}) {
