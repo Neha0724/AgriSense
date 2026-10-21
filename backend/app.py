@@ -48,8 +48,150 @@ for name in ('fertilizer', 'irrigation'):
 
 FEATURES = {
     'fertilizer': ['Soil_Type', 'Crop', 'Crop_Stage', 'pH', 'N', 'P', 'K'],
-    'irrigation': ['district', 'Soil_Type', 'Crop', 'Crop_Stage', 'soil_moisture_pct', 'soil_moisture_volume'],
+    'irrigation': [
+        'district', 'location', 'latitude', 'longitude', 'Crop', 'Crop_Stage',
+        'temperature_mean_c', 'humidity_mean_pct', 'rainfall_mm', 'et0_mm',
+        'soil_moisture_0_7cm_m3m3', 'soil_moisture_7_28cm_m3m3',
+        'soil_temperature_0_7cm_c',
+    ],
 }
+
+IRRIGATION_NUMERIC_FEATURES = {
+    'latitude', 'longitude', 'temperature_mean_c', 'humidity_mean_pct',
+    'rainfall_mm', 'et0_mm', 'soil_moisture_0_7cm_m3m3',
+    'soil_moisture_7_28cm_m3m3', 'soil_temperature_0_7cm_c',
+}
+
+
+def fetch_irrigation_weather(location, district='Nagpur'):
+    # Fetch today's weather and soil estimates for the irrigation model.
+    search_location = str(location or district or 'Nagpur').strip()
+    if not search_location:
+        search_location = 'Nagpur'
+
+    geo_response = requests.get(
+        'https://geocoding-api.open-meteo.com/v1/search',
+        params={'name': search_location, 'count': 10, 'language': 'en', 'format': 'json'},
+        timeout=15,
+    )
+    geo_response.raise_for_status()
+    places = geo_response.json().get('results', [])
+    place = next((item for item in places if item.get('country_code') == 'IN'), None)
+    if not place:
+        raise ValueError(f'Could not find an Indian location for: {search_location}')
+
+    response = requests.get(
+        'https://api.open-meteo.com/v1/forecast',
+        params={
+            'latitude': place['latitude'],
+            'longitude': place['longitude'],
+            'daily': 'precipitation_sum',
+            'hourly': (
+                'temperature_2m,relative_humidity_2m,et0_fao_evapotranspiration,'
+                'soil_moisture_0_to_7cm,soil_moisture_7_to_28cm,'
+                'soil_temperature_0_to_7cm'
+            ),
+            'past_days': 1,
+            'forecast_days': 2,
+            'timezone': 'Asia/Kolkata',
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    weather = response.json()
+    hourly = weather.get('hourly', {})
+    daily = weather.get('daily', {})
+    today = date.today().isoformat()
+    times = hourly.get('time', [])
+    today_indices = [i for i, timestamp in enumerate(times) if timestamp.startswith(today)]
+
+    def mean_today(key):
+        values = hourly.get(key, [])
+        usable = [float(values[i]) for i in today_indices if i < len(values) and values[i] is not None]
+        return round(sum(usable) / len(usable), 4) if usable else None
+
+    et0_values = hourly.get('et0_fao_evapotranspiration', [])
+    et0_today = [float(et0_values[i]) for i in today_indices if i < len(et0_values) and et0_values[i] is not None]
+    daily_dates = daily.get('time', [])
+    rainfall_values = daily.get('precipitation_sum', [])
+    rainfall = None
+    if today in daily_dates:
+        idx = daily_dates.index(today)
+        if idx < len(rainfall_values) and rainfall_values[idx] is not None:
+            rainfall = float(rainfall_values[idx])
+
+    if not today_indices:
+        raise ValueError('Weather service returned no hourly data for today.')
+
+    return {
+        'district': str(place.get('admin2') or district or 'Nagpur').strip().title(),
+        'location': str(place.get('name') or search_location),
+        'latitude': float(place['latitude']),
+        'longitude': float(place['longitude']),
+        'temperature_mean_c': mean_today('temperature_2m'),
+        'humidity_mean_pct': mean_today('relative_humidity_2m'),
+        'rainfall_mm': rainfall,
+        'et0_mm': round(sum(et0_today), 4) if et0_today else None,
+        'soil_moisture_0_7cm_m3m3': mean_today('soil_moisture_0_to_7cm'),
+        'soil_moisture_7_28cm_m3m3': mean_today('soil_moisture_7_to_28cm'),
+        'soil_temperature_0_7cm_c': mean_today('soil_temperature_0_to_7cm'),
+        'weather_source': 'Open-Meteo forecast/modelled soil estimates',
+    }
+
+
+def get_feature_importance(task, pipeline, top_n=8):
+    """Return model feature importance aggregated to original input columns."""
+    if not hasattr(pipeline, "named_steps"):
+        return []
+
+    model = pipeline.named_steps.get("model")
+    preprocess = pipeline.named_steps.get("preprocess")
+    if model is None or preprocess is None:
+        return []
+
+    # Tree models expose native feature importance. For other models, do not
+    # invent explanations; return an empty list instead.
+    importances = getattr(model, "feature_importances_", None)
+    if importances is None:
+        return []
+
+    try:
+        transformed_names = preprocess.get_feature_names_out()
+    except Exception:
+        return []
+
+    original_features = FEATURES.get(task, [])
+    aggregated = {name: 0.0 for name in original_features}
+
+    for transformed_name, importance in zip(transformed_names, importances):
+        name = str(transformed_name)
+        # ColumnTransformer prefixes features with e.g. categorical__ or numeric__.
+        if "__" in name:
+            name = name.split("__", 1)[1]
+
+        matches = [
+            feature for feature in original_features
+            if name == feature or name.startswith(feature + "_")
+        ]
+        if matches:
+            source_feature = max(matches, key=len)
+            aggregated[source_feature] += float(importance)
+
+    total = sum(aggregated.values())
+    if total <= 0:
+        return []
+
+    ranked = sorted(aggregated.items(), key=lambda item: item[1], reverse=True)
+    return [
+        {
+            "feature": feature,
+            "importance": round(value / total, 4),
+            "importance_percent": round((value / total) * 100, 2),
+        }
+        for feature, value in ranked[:top_n]
+        if value > 0
+    ]
+
 
 def serialize(doc):
     if not doc: return None
@@ -181,32 +323,109 @@ def delete_field(field_id):
     return jsonify({'message':'Field deleted.'})
 
 def predict(task, payload):
-    if task not in MODELS: return None, (jsonify({'error':f'{task} model is not trained. Run python train_models.py.'}),503)
-    missing=[k for k in FEATURES[task] if k not in payload or payload[k] is None or payload[k]=='']
-    if missing: return None,(jsonify({'error':'Missing required fields','fields':missing}),400)
-    row={k:payload[k] for k in FEATURES[task]}
-    for key in ('Soil_Type',):
-        if key in row:
-            soil=str(row[key]).strip().replace(' Soil','').title()
-            row[key]=f'{soil} Soil'
+    if task not in MODELS:
+        return None, (jsonify({'error': f'{task} model is not trained. Run python train_models.py.'}), 503)
+
+    payload = dict(payload or {})
+
+    if task == 'irrigation':
+        # The retrained model needs weather and location features, not the old
+        # soil_moisture_pct/soil_moisture_volume fields.
+        required_context = ['Crop', 'Crop_Stage']
+        missing_context = [key for key in required_context if payload.get(key) in (None, '')]
+        if missing_context:
+            return None, (jsonify({
+                'error': 'Missing required crop inputs for irrigation prediction.',
+                'fields': missing_context,
+            }), 400)
+
+        district = payload.get('district') or 'Nagpur'
+        location = payload.get('location') or district
+        missing_weather = [
+            key for key in FEATURES['irrigation']
+            if key not in payload or payload[key] in (None, '')
+        ]
+        if missing_weather:
+            try:
+                weather_features = fetch_irrigation_weather(location, district)
+                # Caller-provided values take priority; missing values come from weather.
+                for key, value in weather_features.items():
+                    if payload.get(key) in (None, ''):
+                        payload[key] = value
+            except requests.RequestException:
+                return None, (jsonify({'error': 'Weather service unavailable for irrigation prediction.'}), 502)
+            except ValueError as exc:
+                return None, (jsonify({'error': str(exc)}), 400)
+
+    missing = [
+        key for key in FEATURES[task]
+        if key not in payload or payload[key] is None or payload[key] == ''
+    ]
+    if missing:
+        return None, (jsonify({
+            'error': 'Missing required fields for prediction.',
+            'fields': missing,
+        }), 400)
+
+    row = {key: payload[key] for key in FEATURES[task]}
+
+    if 'Soil_Type' in row:
+        soil = str(row['Soil_Type']).strip().replace(' Soil', '').title()
+        row['Soil_Type'] = f'{soil} Soil'
+
     for key in ('Crop', 'Crop_Stage'):
         if key in row:
-            row[key]=str(row[key]).strip().title()
-    if task == 'irrigation' and 'district' in row:
-        row['district']=str(row['district']).strip().title()
-    for k in row:
-        if k in ('pH','N','P','K','soil_moisture_pct','soil_moisture_volume'):
-            try: row[k]=float(row[k])
-            except (ValueError,TypeError): return None,(jsonify({'error':f'{k} must be numeric'}),400)
+            row[key] = str(row[key]).strip().title()
+
+    if 'district' in row:
+        row['district'] = str(row['district']).strip().title()
+    if 'location' in row:
+        row['location'] = str(row['location']).strip()
+
+    numeric_keys = {'pH', 'N', 'P', 'K'}
+    if task == 'irrigation':
+        numeric_keys |= IRRIGATION_NUMERIC_FEATURES
+
+    for key in numeric_keys:
+        if key in row:
+            try:
+                row[key] = float(row[key])
+            except (ValueError, TypeError):
+                return None, (jsonify({'error': f'{key} must be numeric.'}), 400)
+
     try:
-        pred=str(MODELS[task].predict(pd.DataFrame([row]))[0])
-        response={'task':task,'prediction':pred,'model_based':True,'model_name':str(MODELS[task].named_steps.get('model', MODELS[task]).__class__.__name__) if hasattr(MODELS[task], 'named_steps') else MODELS[task].__class__.__name__,'disclaimer':'Prototype prediction based on supplied dataset labels; not a validated field prescription.'}
-        model=MODELS[task].named_steps.get('model') if hasattr(MODELS[task],'named_steps') else None
-        if hasattr(model,'predict_proba'):
-            probs=MODELS[task].predict_proba(pd.DataFrame([row]))[0]
-            response['class_probabilities']={str(label):round(float(prob),4) for label,prob in zip(model.classes_,probs)}
-        return response,None
-    except Exception as exc: return None,(jsonify({'error':f'Model prediction failed: {str(exc)}'}),500)
+        frame = pd.DataFrame([row], columns=FEATURES[task])
+        prediction = str(MODELS[task].predict(frame)[0])
+        pipeline = MODELS[task]
+        model = pipeline.named_steps.get('model') if hasattr(pipeline, 'named_steps') else pipeline
+        response = {
+            'task': task,
+            'prediction': prediction,
+            'model_based': True,
+            'model_name': model.__class__.__name__,
+            'disclaimer': 'Prototype prediction based on the supplied training labels; not a field-validated irrigation prescription.',
+        }
+        if hasattr(pipeline, 'predict_proba') and hasattr(model, 'classes_'):
+            probabilities = pipeline.predict_proba(frame)[0]
+            response['class_probabilities'] = {
+                str(label): round(float(probability), 4)
+                for label, probability in zip(model.classes_, probabilities)
+            }
+        # Native tree-model importance, aggregated from encoded columns back
+        # to the original user-facing feature names.
+        response['feature_importance'] = get_feature_importance(task, pipeline)
+        response['explainability_source'] = (
+            'Tree model feature importance; indicates model reliance, not causation.'
+            if response['feature_importance'] else
+            'This model does not expose native feature importance.'
+        )
+
+        if task == 'irrigation':
+            response['weather_source'] = payload.get('weather_source', 'Caller-provided weather inputs')
+            response['weather_inputs'] = row
+        return response, None
+    except Exception as exc:
+        return None, (jsonify({'error': f'Model prediction failed: {str(exc)}'}), 500)
 
 @app.post('/api/fertilizer/predict')
 def fertilizer_predict():
@@ -214,30 +433,93 @@ def fertilizer_predict():
     return error if error else jsonify(result)
 @app.post('/api/irrigation/predict')
 def irrigation_predict():
-    result, error=predict('irrigation',request.get_json(silent=True) or {})
+    result, error = predict('irrigation', request.get_json(silent=True) or {})
     return error if error else jsonify(result)
 
 @app.post('/api/analyze')
 @auth_required
 def analyze():
-    data=request.get_json(silent=True) or {}
-    field_id=str(data.get('fieldId',''))
-    field=None
+    data = request.get_json(silent=True) or {}
+    field_id = str(data.get('fieldId', ''))
+    field = None
+
     if field_id:
-        try: field=db.fields.find_one({'_id':ObjectId(field_id),'user_id':g.user['_id']})
-        except Exception: return jsonify({'error':'Invalid field ID.'}),400
-        if not field: return jsonify({'error':'Field not found or access denied.'}),404
-    inputs=data.get('inputs') or data
-    fert_payload={'Soil_Type':inputs.get('Soil_Type',inputs.get('soilType','')).lower(),'Crop':inputs.get('Crop',inputs.get('cropType','')).lower(),'Crop_Stage':inputs.get('Crop_Stage',inputs.get('growthStage','')).lower(),'pH':inputs.get('pH',6.5),'N':inputs.get('N',inputs.get('nitrogen')),'P':inputs.get('P',inputs.get('phosphorus')),'K':inputs.get('K',inputs.get('potassium'))}
-    irr_payload={'district':inputs.get('district',field.get('district','Nagpur') if field else 'Nagpur'),'Soil_Type':fert_payload['Soil_Type'],'Crop':fert_payload['Crop'],'Crop_Stage':fert_payload['Crop_Stage'],'soil_moisture_pct':inputs.get('soil_moisture_pct',inputs.get('soilMoisture')),'soil_moisture_volume':inputs.get('soil_moisture_volume',inputs.get('soilMoistureVolume',inputs.get('soilMoisture')))}
-    fert,err=predict('fertilizer',fert_payload)
-    if err: return err
-    irr,err=predict('irrigation',irr_payload)
-    if err: return err
-    now=datetime.now(timezone.utc)
-    doc={'user_id':g.user['_id'],'field_id':field_id or None,'field_name':(field or {}).get('name',data.get('fieldName','Unnamed Field')),'inputs':inputs,'fertilizer':fert,'irrigation':irr,'created_at':now}
-    inserted=db.analyses.insert_one(doc); doc['_id']=inserted.inserted_id
-    return jsonify(serialize(doc)),201
+        try:
+            field = db.fields.find_one({'_id': ObjectId(field_id), 'user_id': g.user['_id']})
+        except Exception:
+            return jsonify({'error': 'Invalid field ID.'}), 400
+        if not field:
+            return jsonify({'error': 'Field not found or access denied.'}), 404
+
+    inputs = data.get('inputs') or data
+    district = inputs.get('district') or (field or {}).get('district') or 'Nagpur'
+    crop = inputs.get('Crop', inputs.get('cropType', inputs.get('crop', '')))
+    stage = inputs.get('Crop_Stage', inputs.get('growthStage', inputs.get('current_stage', '')))
+
+    fert_payload = {
+        'Soil_Type': str(inputs.get('Soil_Type', inputs.get('soilType', ''))).lower(),
+        'Crop': str(crop).lower(),
+        'Crop_Stage': str(stage).lower(),
+        'pH': inputs.get('pH', 6.5),
+        'N': inputs.get('N', inputs.get('nitrogen')),
+        'P': inputs.get('P', inputs.get('phosphorus')),
+        'K': inputs.get('K', inputs.get('potassium')),
+    }
+
+    # New irrigation model uses real-time weather/location fields. Missing
+    # weather fields are filled by fetch_irrigation_weather inside predict().
+    irr_payload = {
+        'district': district,
+        'location': inputs.get('location') or district,
+        'Crop': crop,
+        'Crop_Stage': stage,
+    }
+    for key in FEATURES['irrigation']:
+        if key in inputs and inputs[key] not in (None, ''):
+            irr_payload[key] = inputs[key]
+
+    fertilizer_result, error = predict('fertilizer', fert_payload)
+    if error:
+        return error
+
+    irrigation_result, error = predict('irrigation', irr_payload)
+    if error:
+        return error
+
+    # Preserve the submitted inputs, but fill report/history weather fields
+    # from the actual weather inputs used by the irrigation model.
+    # This does not change the model prediction or overwrite unrelated inputs.
+    saved_inputs = dict(inputs)
+    weather_inputs = irrigation_result.get('weather_inputs', {})
+
+    if weather_inputs:
+        saved_inputs.update({
+            'temperature': weather_inputs.get('temperature_mean_c'),
+            'humidity': weather_inputs.get('humidity_mean_pct'),
+            'rainfall': weather_inputs.get('rainfall_mm'),
+            'et0_mm': weather_inputs.get('et0_mm'),
+            'soil_moisture_0_7cm_m3m3':
+                weather_inputs.get('soil_moisture_0_7cm_m3m3'),
+            'soil_moisture_7_28cm_m3m3':
+                weather_inputs.get('soil_moisture_7_28cm_m3m3'),
+            'soil_temperature_0_7cm_c':
+                weather_inputs.get('soil_temperature_0_7cm_c'),
+            'weather_source': irrigation_result.get('weather_source'),
+        })
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        'user_id': g.user['_id'],
+        'field_id': field_id or None,
+        'field_name': (field or {}).get('name', data.get('fieldName', 'Unnamed Field')),
+        'inputs': saved_inputs,
+        'fertilizer': fertilizer_result,
+        'irrigation': irrigation_result,
+        'created_at': now,
+    }
+    inserted = db.analyses.insert_one(doc)
+    doc['_id'] = inserted.inserted_id
+    return jsonify(serialize(doc)), 201
 
 @app.get('/api/analyses')
 @auth_required
