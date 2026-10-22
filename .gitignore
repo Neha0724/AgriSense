@@ -4,5 +4,4 @@ frontend/.env
 backend/.env
 backend/.venv/
 backend/__pycache__/
-backend/models/*.joblib
 backend/reports/*.json

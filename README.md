@@ -1,520 +1,269 @@
-# AgriSense --- Smart Field Insights
+# AgriSense
 
-A data-driven agricultural advisory platform providing crop-specific
-fertilizer recommendations, irrigation predictions, weather insights,
-and field report management.
+**Smart Crop Insights & Field Management Platform**
 
-## Table of Contents
+AgriSense is a web-based agricultural platform that helps farmers manage field information and access crop-specific fertilizer recommendations, irrigation assessments, and weather-based insights through a single dashboard.
 
--   [Overview](#overview)
--   [Objectives](#objectives)
--   [Features](#features)
--   [Technology Stack](#technology-stack)
--   [Architecture](#architecture)
--   [Machine Learning Models](#machine-learning-models)
--   [Dataset and Evaluation](#dataset-and-evaluation)
--   [Project Structure](#project-structure)
--   [Installation](#installation)
--   [Environment Variables](#environment-variables)
--   [API Endpoints](#api-endpoints)
--   [Testing](#testing)
--   [Limitations](#limitations)
--   [Future Scope](#future-scope)
--   [Contributing](#contributing)
--   [License](#license)
+It combines a React frontend, Flask REST API, machine learning models, MongoDB storage, and weather data from Open-Meteo.
 
-## Overview
+## Live Application
 
-AgriSense is a web-based agricultural advisory platform that brings
-crop, soil, and weather-related information into a single interface. It
-provides fertilizer-category predictions, irrigation-need
-classification, weather-informed crop water insights, model
-feature-importance information, and field report management.
+- **Frontend:** https://agri-sense-liard.vercel.app
+- **Backend API:** https://agrisense-backend-d3ap.onrender.com
 
-## Objectives
-
--   Classify irrigation requirements using crop, growth-stage, weather,
-    and soil-related inputs.
--   Recommend fertilizer categories using soil characteristics, crop
-    information, growth stage, and nutrient values.
--   Integrate weather data from Open-Meteo.
--   Calculate indicative crop water-use and climate water-deficit
-    estimates.
--   Present model feature importance to help users understand model
-    behaviour.
--   Store field information and reports in MongoDB.
+*Note: The backend URL provides API services; it is not a separate frontend website.*
 
 ## Features
 
-### Irrigation Need Prediction
+- **User Authentication:** Account registration and login.
+- **Field Management:** Add and manage agricultural field information.
+- **Fertilizer Recommendation:** Predict fertilizer categories using soil, crop, crop stage, and nutrient information.
+- **Irrigation Assessment:** Classify irrigation requirements as Low, Medium, or High.
+- **Weather Insights:** Retrieve weather information using Open-Meteo.
+- **Field Analysis:** Combine field inputs, predictions, and weather-related information into one analysis.
+- **Dashboard:** View field insights and recommendations.
+- **Analysis History:** Access saved field analyses.
+- **Field Reports:** Print reports and share analysis summaries.
 
-Classifies irrigation need as **Low**, **Medium**, or **High** using a
-trained Decision Tree classifier.
+## Tech Stack
 
-### Fertilizer Recommendation
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, JavaScript, CSS |
+| Backend | Python, Flask, Flask-CORS |
+| Machine Learning | scikit-learn, Decision Tree, Random Forest |
+| Database | MongoDB, PyMongo |
+| Weather Data | Open-Meteo API |
+| Authentication | JWT, Werkzeug |
+| Deployment | Vercel (frontend), Render (backend) |
+| Model Persistence | Joblib |
 
-Predicts one of the configured fertilizer categories: **DAP**, **Urea**,
-or **10:26:26**, using a trained Random Forest classifier.
+## Machine Learning
 
-### Weather and Crop Water Insights
+AgriSense uses separate trained models for fertilizer recommendation and irrigation assessment.
 
-Uses Open-Meteo weather data, including rainfall and reference
-evapotranspiration (ET₀), alongside crop-stage information to calculate
-indicative crop water use and climate water deficit. Modelled
-soil-moisture values may also be displayed.
+| Task | Selected Model | Accuracy | Macro F1-Score |
+|---|---|---:|---:|
+| Irrigation assessment | Decision Tree | 96.75% | 96.76% |
+| Fertilizer recommendation | Random Forest | 90.38% | 75.73% |
 
-### Model Insights
+These metrics were obtained from held-out evaluation data. They describe model performance on that evaluation split and do not establish real-world agricultural effectiveness.
 
-Displays feature-importance information for the selected models. Feature
-importance describes model reliance; it does not establish causation for
-an individual prediction.
+### Prediction Categories
 
-### Field and Report Management
+- **Fertilizer:** DAP, Urea, and 10:26:26.
+- **Irrigation:** Low, Medium, and High.
 
-Supports field-related workflows, saving field reports, and accessing
-saved reports through History. The interface also provides print and
-summary-sharing actions.
+Recommendations depend on the inputs provided and the information available to the application. They should be checked against local soil conditions and agricultural guidance before field application.
 
-### User Authentication
+## System Architecture
 
-Includes signup, login, and authenticated-user endpoints.
-
-## Technology Stack
-
-  -----------------------------------------------------------------------
-  Category                            Technologies
-  ----------------------------------- -----------------------------------
-  Frontend                            React.js, JavaScript, HTML, CSS
-
-  Backend                             Python, Flask
-
-  Machine Learning                    scikit-learn
-
-  Data Processing                     pandas, NumPy
-
-  Models Evaluated                    Decision Tree, Random Forest,
-                                      Artificial Neural Network (ANN)
-
-  Database                            MongoDB
-
-  Weather Data                        Open-Meteo API
-
-  HTTP Requests                       Python Requests
-
-  Model Persistence                   joblib
-
-  API Communication                   REST API, JSON
-
-  Development Tools                   Git, GitHub, VS Code, Postman
-
-  Package Management                  npm, Python pip
-  -----------------------------------------------------------------------
-
-Confirm the exact dependencies and versions in `package.json` and the
-backend dependency file before publishing.
-
-## Architecture
-
-AgriSense uses a client-server architecture.
-
-``` text
+```text
 User
- |
- v
-React.js Frontend
- |
- | REST API / JSON
- v
-Flask Backend
- |-------------------|
- v         v         v
-Irrigation Fertilizer Weather
-Model     Model     Service
- |         |         |
- +---------+---------+
-           |
-           v
-     Response Processing
-           |
-      +----+----+
-      v         v
-  Dashboard   MongoDB
-  and Insights  |
-                v
-          Saved Field Reports
+  |
+  v
+React + Vite Frontend
+  |
+  v
+Flask REST API
+  |
+  +---- User Authentication
+  |
+  +---- Field Management
+  |
+  +---- Fertilizer Model
+  |
+  +---- Irrigation Model
+  |
+  +---- Open-Meteo Weather Data
+  |
+  v
+MongoDB
+  |
+  v
+Dashboard, Analysis History and Reports
 ```
-
-### Prediction Workflow
-
-1.  The user enters or selects field and crop information.
-2.  The frontend sends a JSON request to the Flask backend.
-3.  The backend validates the input and prepares the model features.
-4.  The relevant trained model generates a prediction.
-5.  The backend returns the prediction and available supporting
-    information.
-6.  The frontend displays the results.
-
-## Machine Learning Models
-
-### Irrigation Model
-
--   **Selected model:** Decision Tree Classifier
--   **Target:** `Irrigation_Need`
--   **Classes:** Low, Medium, High
--   **Features:** District, location, latitude, longitude, crop, crop
-    stage, temperature, humidity, rainfall, ET₀, surface soil moisture,
-    deeper soil moisture, and soil temperature.
-
-### Fertilizer Model
-
--   **Selected model:** Random Forest Classifier
--   **Target:** `Fertilizer_Recommendation`
--   **Classes:** DAP, Urea, 10:26:26
--   **Features:** Soil type, crop, crop stage, pH, nitrogen (N),
-    phosphorus (P), and potassium (K).
-
-Decision Tree, Random Forest, and ANN models were evaluated during
-training. The selected model for each task is determined by the
-project's training pipeline.
-
-## Dataset and Evaluation
-
-  ---------------------------------------------------------------------------------
-  Dataset                                             Records Purpose
-  ------------------------------ ---------------------------- ---------------------
-  `irrigation_model_ready.csv`                          2,920 Irrigation-need
-                                                              classification
-
-  `fertilizer.csv`                                        257 Fertilizer-category
-                                                              prediction
-  ---------------------------------------------------------------------------------
-
-### Reported Evaluation Results
-
-  Task         Selected Model     Accuracy   Macro F1-Score
-  ------------ ---------------- ---------- ----------------
-  Irrigation   Decision Tree        96.75%           96.76%
-  Fertilizer   Random Forest        90.38%           75.73%
-
-These results are based on the held-out test splits used during
-training. The fertilizer dataset has an uneven class distribution, so
-accuracy alone does not fully describe performance across all classes.
-These metrics do not establish real-world agricultural accuracy;
-independent validation using representative field observations is
-required.
 
 ## Project Structure
 
-The main files and folders identified during development are shown
-below. Adjust this overview to match the final repository.
-
-``` text
+```text
 AgriSense/
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── ...
 ├── backend/
 │   ├── app.py
 │   ├── irrigation_advisory.py
-│   ├── build_crop_dataset.py
 │   ├── train_models.py
-│   ├── data/
-│   │   ├── fertilizer.csv
-│   │   ├── irrigation.csv
-│   │   ├── irrigation_model_ready.csv
-│   │   ├── irrigation_real_weather_enriched.csv
-│   │   └── nagpur_crop_water_demand.csv
+│   ├── build_crop_dataset.py
 │   ├── models/
-│   │   ├── irrigation_pipeline.joblib
-│   │   └── fertilizer_pipeline.joblib
-│   ├── reports/
-│   │   ├── irrigation_evaluation.json
-│   │   └── fertilizer_evaluation.json
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   ├── package.json
+│   │   ├── fertilizer_pipeline.joblib
+│   │   └── irrigation_pipeline.joblib
+│   ├── requirements.txt
 │   └── ...
+├── data/
+├── reports/
 └── README.md
 ```
 
-## Installation
+*The structure above summarizes the main components; individual files may vary by version.*
+
+## Local Setup
 
 ### Prerequisites
 
--   Python 3.11 or another compatible Python version
--   Node.js and npm
--   MongoDB, locally or hosted
--   Git
+- Python 3.11 or another compatible Python version
+- Node.js and npm
+- MongoDB connection string
+- Git
 
 ### 1. Clone the repository
 
-``` bash
-git clone <YOUR_REPOSITORY_URL>
+```bash
+git clone <YOUR_GITHUB_REPOSITORY_URL>
 cd AgriSense
 ```
 
-Replace `<YOUR_REPOSITORY_URL>` and `AgriSense` with the actual
-repository URL and folder name.
+Replace the placeholder with your repository URL.
 
-### 2. Set up the backend
+### 2. Configure the backend
 
-``` cmd
+```bash
 cd backend
 python -m venv .venv
+```
+
+Activate the environment.
+
+**Windows:**
+
+```bash
 .venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-If `requirements.txt` is not present, create it from the project's
-verified dependencies before sharing the repository.
+Create a `backend/.env` file:
 
-### 3. Configure environment variables
-
-Create a `.env` file in the backend directory using the variable names
-expected by `app.py`. For example:
-
-``` env
+```env
 MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_secure_secret
+JWT_SECRET=your_long_random_secret
+FRONTEND_ORIGIN=http://localhost:5173
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+FLASK_DEBUG=false
 ```
 
-Do not commit credentials, tokens, or private connection strings.
+Use your own credentials. Never commit `.env` or expose secrets in frontend code.
 
-### 4. Train the models
+Ensure the trained model files are available in the backend's configured model directory.
 
-If trained model files are not available, run:
+Start the backend:
 
-``` cmd
-python train_models.py
-```
-
-### 5. Start the backend
-
-``` cmd
+```bash
 python app.py
 ```
 
-The backend used port `5000` during development. Check the health
-endpoint:
+The local API runs at `http://localhost:5000` with the default configuration.
 
-``` bash
-curl http://127.0.0.1:5000/api/health
-```
+### 3. Configure the frontend
 
-A successful response should report the application status, model
-readiness, and database connection status.
+Open a separate terminal:
 
-### 6. Set up the frontend
-
-Open a second terminal:
-
-``` bash
+```bash
 cd frontend
 npm install
+```
+
+Create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Start the frontend:
+
+```bash
 npm run dev
 ```
 
-Open the local URL printed by the development server and confirm that
-the frontend API configuration points to the backend.
+Open the local URL printed by Vite, usually `http://localhost:5173`.
 
-## Environment Variables
+## Deployment Configuration
 
-  Variable       Purpose
-  -------------- --------------------------------------------
-  `MONGO_URI`    MongoDB connection string
-  `JWT_SECRET`   Secret used for JWT-related authentication
+### Frontend — Vercel
 
-Document any additional variables required by the final configuration.
-Consider providing a `.env.example` file with placeholder values.
+Deploy the `frontend` directory as the project root.
+
+Configure this environment variable:
+
+```env
+VITE_API_URL=https://agrisense-backend-d3ap.onrender.com
+```
+
+The frontend must read the same variable name using `import.meta.env.VITE_API_URL`. Redeploy after changing environment variables.
+
+### Backend — Render
+
+Configure the `backend` directory as the root directory.
+
+**Build command:**
+
+```bash
+pip install -r requirements.txt
+```
+
+**Start command:**
+
+```bash
+gunicorn app:app --bind 0.0.0.0:$PORT
+```
+
+Set the required environment variables in Render:
+
+- `MONGO_URI`
+- `JWT_SECRET`
+- `FRONTEND_ORIGIN`
+
+Set `FRONTEND_ORIGIN` to the deployed Vercel origin, including `https://` and without a trailing slash. Add any other Vercel deployment origins that need access, separated by commas.
+
+Ensure the model files are included in the deployment and load successfully at startup.
 
 ## API Endpoints
 
-The Flask backend exposes the following routes.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/` | Root endpoint |
+| GET | `/api/health` | Service health check |
+| POST | `/api/auth/signup` | Register an account |
+| POST | `/api/auth/login` | Authenticate a user |
+| GET | `/api/auth/me` | Retrieve authenticated user information |
+| GET | `/api/fields` | List fields |
+| POST | `/api/fields` | Create a field |
+| GET | `/api/fields/<field_id>` | Retrieve field details |
+| POST | `/api/fertilizer/predict` | Generate a fertilizer prediction |
+| POST | `/api/irrigation/predict` | Generate an irrigation assessment |
+| POST | `/api/analyze` | Analyze field information |
+| GET | `/api/analyses` | Retrieve analysis history |
+| GET | `/api/analyses/<analysis_id>` | Retrieve a saved analysis |
+| GET | `/api/weather` | Retrieve weather information |
+| POST | `/api/irrigation/advisory` | Generate irrigation advisory information |
 
-### Health
+Protected endpoints may require authentication. Refer to the backend implementation for request fields and response formats.
 
-  Method   Endpoint        Purpose
-  -------- --------------- ------------------------------------------------
-  GET      `/`             API welcome/status information
-  GET      `/api/health`   Check model readiness and MongoDB connectivity
+## Security and Usage Notes
 
-### Authentication
-
-  Method   Endpoint             Purpose
-  -------- -------------------- -----------------------------------------
-  POST     `/api/auth/signup`   Register a user
-  POST     `/api/auth/login`    Authenticate a user
-  GET      `/api/auth/me`       Retrieve authenticated-user information
-
-### Field Management
-
-  Method   Endpoint                   Purpose
-  -------- -------------------------- ---------------------------
-  GET      `/api/fields`              Retrieve fields
-  POST     `/api/fields`              Create a field
-  GET      `/api/fields/<field_id>`   Retrieve a specific field
-
-### Predictions and Advisory
-
-  ----------------------------------------------------------------------------
-  Method                  Endpoint                     Purpose
-  ----------------------- ---------------------------- -----------------------
-  POST                    `/api/fertilizer/predict`    Predict a fertilizer
-                                                       category
-
-  POST                    `/api/irrigation/predict`    Predict irrigation need
-
-  POST                    `/api/analyze`               Run the combined
-                                                       analysis workflow
-
-  POST                    `/api/irrigation/advisory`   Retrieve
-                                                       weather-informed crop
-                                                       water insights
-  ----------------------------------------------------------------------------
-
-### Weather and Saved Analyses
-
-  -------------------------------------------------------------------------------
-  Method                  Endpoint                        Purpose
-  ----------------------- ------------------------------- -----------------------
-  GET                     `/api/weather`                  Retrieve weather
-                                                          information
-
-  GET                     `/api/analyses`                 Retrieve saved analyses
-
-  GET                     `/api/analyses/<analysis_id>`   Retrieve a specific
-                                                          saved analysis
-  -------------------------------------------------------------------------------
-
-Some endpoints may require authentication. Use the authorization
-mechanism implemented by the backend.
-
-### Example: Fertilizer Prediction
-
-Request:
-
-``` http
-POST /api/fertilizer/predict
-Content-Type: application/json
-```
-
-``` json
-{
-  "Soil_Type": "Black Soil",
-  "Crop": "Cotton",
-  "Crop_Stage": "Vegetative",
-  "pH": 6.8,
-  "N": 40,
-  "P": 25,
-  "K": 30
-}
-```
-
-Example response:
-
-``` json
-{
-  "task": "fertilizer",
-  "prediction": "Urea",
-  "model_based": true,
-  "model_name": "RandomForestClassifier"
-}
-```
-
-The actual response may also contain class probabilities, feature
-importance, and explanatory metadata. The result depends on the supplied
-input and trained model.
-
-### Example: Irrigation Prediction
-
-Request:
-
-``` http
-POST /api/irrigation/predict
-Content-Type: application/json
-```
-
-``` json
-{
-  "district": "Nagpur",
-  "location": "Nagpur",
-  "latitude": 21.1458,
-  "longitude": 79.0882,
-  "Crop": "Cotton",
-  "Crop_Stage": "Vegetative",
-  "temperature_mean_c": 30,
-  "humidity_mean_pct": 55,
-  "rainfall_mm": 2,
-  "et0_mm": 5,
-  "soil_moisture_0_7cm_m3m3": 0.20,
-  "soil_moisture_7_28cm_m3m3": 0.24,
-  "soil_temperature_0_7cm_c": 28
-}
-```
-
-These values demonstrate the request format; they are not verified field
-measurements.
-
-## Testing
-
-The following checks were performed during development: - Training and
-evaluation of both models. - Confirmation that selected model pipelines
-were saved. - Backend health endpoint verification. - Verification of
-MongoDB connectivity and model loading. - Successful requests to
-fertilizer and irrigation prediction endpoints. - Frontend rendering of
-predictions, probabilities, and feature-importance information. - Field
-report saving and History retrieval. - Climate water-deficit display
-verification after correcting the frontend field mapping. - Source and
-dataset text scans for unwanted terminology.
-
-The reported metrics are dataset-based results, not independent
-field-validation results. Before production deployment, also test
-authentication, invalid inputs, external-service failures, database
-errors, and report actions in the intended deployment environment.
-
-## Limitations
-
--   Predictions depend on the quality and coverage of the training data.
--   The fertilizer dataset has an imbalanced class distribution.
--   Evaluation scores do not guarantee performance on unseen
-    agricultural conditions.
--   Weather and soil-moisture values from external services are
-    estimates and may differ from field conditions.
--   Crop coefficients and growth-stage mapping require local validation.
--   Climate water deficit is an estimate, not a validated irrigation
-    dose.
--   The platform does not independently establish fertilizer quantity,
-    irrigation volume, or watering schedule.
--   Confirm agricultural decisions with field observations, soil tests,
-    and local agricultural guidance.
-
-## Future Scope
-
--   Validate models using field-collected agricultural data.
--   Improve class balance and dataset coverage.
--   Add more crops, soil types, and geographical regions.
--   Monitor model performance and retrain with verified observations.
--   Expand automated API and error-handling tests.
--   Add historical weather analysis and trend visualization.
--   Improve report export, deployment monitoring, and logging.
-
-## Contributing
-
-1.  Fork the repository.
-2.  Create a feature branch.
-3.  Implement and test your changes.
-4.  Commit changes with a descriptive message.
-5.  Open a pull request describing the changes.
-
-Do not commit credentials, private data, or unverified agricultural
-recommendations.
+- Store database credentials and authentication secrets in deployment environment variables.
+- Configure CORS to allow only the intended frontend origins.
+- Keep trained model files available to the backend at runtime.
+- Predictions are decision-support information, not guaranteed crop outcomes or substitutes for local agricultural expertise.
 
 ## License
 
-A license has not been specified in this document. Add an appropriate
-license file before distributing the project publicly.
-
-------------------------------------------------------------------------
-
-**AgriSense --- Smart Field Insights**
-
-A data-driven platform for agricultural predictions, weather-informed
-insights, and field report management.
+Add a license file to the repository if you intend to distribute the project under an open-source license.
