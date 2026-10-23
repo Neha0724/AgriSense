@@ -263,7 +263,3 @@ Protected endpoints may require authentication. Refer to the backend implementat
 - Configure CORS to allow only the intended frontend origins.
 - Keep trained model files available to the backend at runtime.
 - Predictions are decision-support information, not guaranteed crop outcomes or substitutes for local agricultural expertise.
-
-## License
-
-Add a license file to the repository if you intend to distribute the project under an open-source license.
